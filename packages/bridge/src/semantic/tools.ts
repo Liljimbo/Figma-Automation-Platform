@@ -470,6 +470,26 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
       required: ['name', 'title'],
     },
   },
+  {
+    name: 'create_toast',
+    description: '创建 Toast 提示条，支持 success/error/info/warning 样式',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '提示条名称' },
+        message: { type: 'string', description: '提示文字' },
+        variant: {
+          type: 'string',
+          enum: ['success', 'error', 'info', 'warning'],
+          description: '样式变体',
+          default: 'info',
+        },
+        width: { type: 'number', description: '宽度（px）' },
+        parentId: { type: 'string', description: '父节点 ID' },
+      },
+      required: ['name', 'message'],
+    },
+  },
 
   // ── 读取工具 ──
   {
@@ -1026,6 +1046,8 @@ export class SemanticTools {
           return await this.createNavigation(params);
         case 'create_hero':
           return await this.createHero(params);
+        case 'create_toast':
+          return await this.createToast(params);
 
         // ── 读取工具 ──
         case 'find_nodes':
@@ -2269,6 +2291,74 @@ export class SemanticTools {
     this.registry.register(entry);
 
     return { success: true, data: { ...hero, semantic: 'hero' } };
+  }
+
+  private async createToast(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { name, message, variant = 'info', width, parentId } = params;
+
+    const colorMap: Record<string, string> = {
+      success: '#059669',
+      error: '#DC2626',
+      info: '#2563EB',
+      warning: '#D97706',
+    };
+    const bgColorMap: Record<string, string> = {
+      success: '#ECFDF5',
+      error: '#FEF2F2',
+      info: '#EFF6FF',
+      warning: '#FFFBEB',
+    };
+
+    const toast = await this.primitives.createNode({
+      type: 'FRAME',
+      name: name as string,
+      parentId: parentId as string | undefined,
+      width: (width as number) || 360,
+      fills: parseFills(bgColorMap[variant as string] || bgColorMap.info),
+      cornerRadius: 8,
+    });
+
+    await this.primitives.setLayout({
+      nodeId: toast.id,
+      direction: 'HORIZONTAL',
+      paddingLeft: 16,
+      paddingRight: 16,
+      paddingTop: 12,
+      paddingBottom: 12,
+      itemSpacing: 8,
+      counterAxisAlignItems: 'CENTER',
+    });
+
+    // 指示条
+    await this.primitives.createNode({
+      type: 'RECTANGLE',
+      name: 'Indicator',
+      parentId: toast.id,
+      width: 4,
+      height: 20,
+      fills: parseFills(colorMap[variant as string] || colorMap.info),
+      cornerRadius: 2,
+    } as any);
+
+    await this.primitives.createTextNode({
+      content: message as string,
+      name: 'Message',
+      parentId: toast.id,
+      fontSize: 14,
+      color: parseColor('#1F2937'),
+    });
+
+    const entry: SemanticEntry = {
+      nodeId: toast.id,
+      type: 'toast',
+      name: name as string,
+      createdAt: Date.now(),
+      parentId: parentId as string | undefined,
+      metadata: { message, variant },
+    };
+    this.registry.register(entry);
+
+    return { success: true, data: { ...toast, semantic: 'toast', variant } };
   }
 
   // ─── 读取工具实现 ─────────────────────────────────────────

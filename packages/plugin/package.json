@@ -1,6 +1,7 @@
 {
   "name": "@figma-bridge/plugin",
   "version": "0.1.0",
+  "description": "Figma Plugin for Figma Automation Platform — executes commands via Plugin API",
   "private": true,
   "type": "module",
   "scripts": {
