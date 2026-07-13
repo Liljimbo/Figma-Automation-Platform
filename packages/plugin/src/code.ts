@@ -1,9 +1,7 @@
 // ============================================================
 // @figma-forge/plugin — Figma Plugin 主线程
-// 运行在 Figma 的沙箱环境中，直接访问 figma.* API
 // ============================================================
 
-import { serializeNode } from './utils/serialize.js';
 import { readHandlers } from './commands/read.js';
 import { createHandlers } from './commands/create.js';
 import { modifyHandlers } from './commands/modify.js';
@@ -12,8 +10,6 @@ import { variantsHandlers } from './commands/variants.js';
 import { eventsHandlers } from './commands/events.js';
 import { diffHandlers } from './commands/diff.js';
 
-// ─── Command Handlers ──────────────────────────────────────
-
 type CommandHandler = (params: Record<string, unknown>) => Promise<unknown>;
 
 const handlers: Record<string, CommandHandler> = {};
@@ -21,8 +17,6 @@ const handlers: Record<string, CommandHandler> = {};
 function registerHandler(cmd: string, handler: CommandHandler) {
   handlers[cmd] = handler;
 }
-
-// ─── Read Handlers (from commands/read.ts) ──────────────────
 
 registerHandler('getDocumentInfo', async () => {
   const pages = figma.root.children.map(page => ({
@@ -70,12 +64,9 @@ registerHandler('getNodeTree', async (params) => {
   return buildTree(startNode, 0);
 });
 
-// 从 commands/read.ts 导入的增强 handler
 registerHandler('getNodeProperties', readHandlers.getNodeProperties);
 registerHandler('findNodes', readHandlers.findNodes);
 registerHandler('getStyles', readHandlers.getStyles);
-
-// ─── Create Handlers (from commands/create.ts) ──────────────
 
 registerHandler('createNode', createHandlers.createNode);
 registerHandler('createTextNode', createHandlers.createTextNode);
@@ -190,13 +181,11 @@ registerHandler('exportNode', async (params) => {
   return { base64, format, width: (node as SceneNode).width, height: (node as SceneNode).height };
 });
 
-// 从 commands/modify.ts 导入的增强 handler
 registerHandler('duplicateNode', modifyHandlers.duplicateNode);
 registerHandler('groupNodes', modifyHandlers.groupNodes);
 registerHandler('ungroupNodes', modifyHandlers.ungroupNodes);
 registerHandler('swapComponent', modifyHandlers.swapComponent);
 
-// ─── Variables Handlers (from commands/variables.ts) ───────
 registerHandler('createVariableCollection', variablesHandlers.createVariableCollection);
 registerHandler('getVariableCollections', variablesHandlers.getVariableCollections);
 registerHandler('createVariable', variablesHandlers.createVariable);
@@ -206,20 +195,15 @@ registerHandler('deleteVariable', variablesHandlers.deleteVariable);
 registerHandler('addVariableMode', variablesHandlers.addVariableMode);
 registerHandler('assignVariableToNode', variablesHandlers.assignVariableToNode);
 
-// ─── Variants Handlers (from commands/variants.ts) ────────
 registerHandler('createComponentSet', variantsHandlers.createComponentSet);
 registerHandler('getComponentSets', variantsHandlers.getComponentSets);
 registerHandler('createVariantInstance', variantsHandlers.createVariantInstance);
 registerHandler('setVariantProperties', variantsHandlers.setVariantProperties);
 
-// ─── Event Listeners (from commands/events.ts) ───────────
 registerHandler('startListening', eventsHandlers.startListening);
 registerHandler('stopListening', eventsHandlers.stopListening);
 
-// ─── Diff Engine (from commands/diff.ts) ─────────────────
 registerHandler('snapshotNode', diffHandlers.snapshotNode);
-
-// ─── Message Handler ───────────────────────────────────────
 
 figma.ui.onmessage = async (msg: { id: string; cmd: string; params: Record<string, unknown> }) => {
   const { id, cmd, params } = msg;
@@ -247,8 +231,6 @@ figma.ui.onmessage = async (msg: { id: string; cmd: string; params: Record<strin
     });
   }
 };
-
-// ─── Plugin 生命周期 ──────────────────────────────────────
 
 figma.showUI(__html__, {
   width: 400,

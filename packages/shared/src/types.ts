@@ -2,9 +2,6 @@
 // @figma-forge/shared — 统一类型定义
 // ============================================================
 
-// ─── Primitive Commands（Bridge → Plugin）──────────────────
-
-/** 所有可用的 Primitive Command 类型 */
 export type PrimitiveCommandType =
   | 'getDocumentInfo'
   | 'getNodeTree'
@@ -30,28 +27,22 @@ export type PrimitiveCommandType =
   | 'deleteVariable'
   | 'addVariableMode'
   | 'assignVariableToNode'
-  // Component Variants
   | 'createComponentSet'
   | 'getComponentSets'
   | 'createVariantInstance'
   | 'setVariantProperties'
-  // Event Listeners
   | 'startListening'
   | 'stopListening'
   | 'getPendingEvents'
-  // Diff Engine
   | 'snapshotNode'
-  // Templates
   | 'createFromTemplate';
 
-/** 发送给 Plugin 的原始命令 */
 export interface PrimitiveCommand {
   id: string;
   cmd: PrimitiveCommandType;
   params: Record<string, unknown>;
 }
 
-/** Plugin 返回的执行结果 */
 export interface CommandResult {
   id: string;
   success: boolean;
@@ -59,11 +50,7 @@ export interface CommandResult {
   error?: string;
 }
 
-// ─── Read Commands ─────────────────────────────────────────
-
-export interface GetDocumentInfoParams {
-  // 无参数
-}
+export interface GetDocumentInfoParams {}
 
 export interface DocumentInfo {
   name: string;
@@ -72,8 +59,8 @@ export interface DocumentInfo {
 }
 
 export interface GetNodeTreeParams {
-  nodeId?: string;    // 不传则从根节点开始
-  depth?: number;     // 递归深度，默认 3
+  nodeId?: string;
+  depth?: number;
 }
 
 export interface TreeNode {
@@ -86,19 +73,17 @@ export interface TreeNode {
 
 export interface GetNodePropertiesParams {
   nodeId: string;
-  properties?: string[];  // 不传则返回所有属性
+  properties?: string[];
 }
 
 export interface FindNodesParams {
-  name?: string;        // 名称匹配（支持 * 通配符）
-  type?: string;        // 节点类型过滤
-  pageId?: string;      // 指定页面
-  recursive?: boolean;  // 是否递归搜索子节点
-  maxDepth?: number;    // 递归搜索最大深度
-  propertyFilter?: Record<string, unknown>; // 按属性值过滤
+  name?: string;
+  type?: string;
+  pageId?: string;
+  recursive?: boolean;
+  maxDepth?: number;
+  propertyFilter?: Record<string, unknown>;
 }
-
-// ─── Create Commands ───────────────────────────────────────
 
 export type LayoutDirection = 'NONE' | 'HORIZONTAL' | 'VERTICAL';
 
@@ -148,8 +133,6 @@ export interface CreateTextNodeParams {
   y?: number;
 }
 
-// ─── Modify Commands ───────────────────────────────────────
-
 export interface DeleteNodeParams {
   nodeId: string;
 }
@@ -178,15 +161,11 @@ export interface MoveNodeParams {
   index?: number;
 }
 
-// ─── Export Commands ───────────────────────────────────────
-
 export interface ExportNodeParams {
   nodeId: string;
   format?: 'PNG' | 'JPG' | 'SVG' | 'PDF';
   scale?: number;
 }
-
-// ─── Additional Commands ──────────────────────────────────
 
 export interface DuplicateNodeParams {
   nodeId: string;
@@ -212,8 +191,6 @@ export interface SwapComponentParams {
   componentName?: string;
   newComponentId?: string;
 }
-
-// ─── Variables Commands ────────────────────────────────────
 
 export type VariableResolvedType = 'BOOLEAN' | 'COLOR' | 'FLOAT' | 'STRING';
 
@@ -255,8 +232,6 @@ export interface AssignVariableToNodeParams {
   property: string;
 }
 
-// ─── Component Variants Commands ──────────────────────────
-
 export interface VariantDefinition {
   name: string;
   properties: Record<string, string>;
@@ -282,8 +257,6 @@ export interface SetVariantPropertiesParams {
   properties: Record<string, string>;
 }
 
-// ─── Event Listener Commands ─────────────────────────────
-
 export interface StartListeningParams {
   events: Array<'selectionchange' | 'documentchange' | 'currentpagechange'>;
 }
@@ -297,8 +270,6 @@ export interface PluginEvent {
   timestamp: number;
   data?: unknown;
 }
-
-// ─── Diff Engine ─────────────────────────────────────────
 
 export interface NodeSnapshot {
   id: string;
@@ -321,8 +292,6 @@ export interface NodeDiff {
   parentId?: string;
 }
 
-// ─── Template System ─────────────────────────────────────
-
 export interface TemplateDefinition {
   name: string;
   description: string;
@@ -336,9 +305,6 @@ export interface CreateFromTemplateParams {
   parentId?: string;
 }
 
-// ─── Semantic Layer Types ──────────────────────────────────
-
-/** 语义注册表条目 */
 export interface SemanticEntry {
   nodeId: string;
   type: string;
@@ -348,7 +314,6 @@ export interface SemanticEntry {
   metadata?: Record<string, unknown>;
 }
 
-/** Semantic Tool 定义（用于 MCP 注册） */
 export interface SemanticToolDefinition {
   name: string;
   description: string;
@@ -359,22 +324,16 @@ export interface SemanticToolDefinition {
   };
 }
 
-/** Semantic Tool 执行结果 */
 export interface SemanticResult {
   success: boolean;
   data?: unknown;
   error?: string;
 }
 
-// ─── WebSocket Protocol ────────────────────────────────────
-
-/** WebSocket 消息格式 */
 export interface WSMessage {
   type: 'command' | 'result' | 'ping' | 'pong' | 'error';
   payload: PrimitiveCommand | CommandResult | { message: string };
 }
-
-// ─── JSON Schema Helper ────────────────────────────────────
 
 export type JSONSchemaProperty = {
   type: string;

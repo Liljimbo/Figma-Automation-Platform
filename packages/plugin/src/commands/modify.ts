@@ -23,19 +23,16 @@ export const duplicateNode: CommandHandler = async (params) => {
   const cloned = (node as SceneNode).clone();
   cloned.name = newName || name || `${node.name} Copy`;
 
-  // 偏移位置
   if (offset && 'x' in cloned && 'y' in cloned) {
     cloned.x += offset.x;
     cloned.y += offset.y;
   }
 
-  // 移动到新父节点
   if (newParentId) {
     const parent = figma.getNodeById(newParentId);
     if (parent && 'children' in parent) {
       (parent as ChildrenMixin).appendChild(cloned);
     } else {
-      // 如果目标父节点不存在，保持在原位置
       figma.currentPage.appendChild(cloned);
     }
   }
@@ -45,53 +42,6 @@ export const duplicateNode: CommandHandler = async (params) => {
     name: cloned.name,
     type: cloned.type,
     originalId: nodeId,
-  };
-};
-
-// ─── setMultipleProperties — 批量设置属性 ───────────────────
-
-export const setMultipleProperties: CommandHandler = async (params) => {
-  const { updates } = params as {
-    updates: Array<{
-      nodeId: string;
-      properties: Record<string, unknown>;
-    }>;
-  };
-
-  if (!Array.isArray(updates)) {
-    throw new Error('updates must be an array');
-  }
-
-  const results: Array<{ nodeId: string; success: boolean; error?: string }> = [];
-
-  for (const update of updates) {
-    const node = figma.getNodeById(update.nodeId);
-    if (!node) {
-      results.push({
-        nodeId: update.nodeId,
-        success: false,
-        error: `Node not found: ${update.nodeId}`,
-      });
-      continue;
-    }
-
-    const sceneNode = node as SceneNode;
-    for (const [key, value] of Object.entries(update.properties)) {
-      try {
-        (sceneNode as unknown as Record<string, unknown>)[key] = value;
-      } catch {
-        // 忽略只读属性
-      }
-    }
-
-    results.push({ nodeId: update.nodeId, success: true });
-  }
-
-  return {
-    total: updates.length,
-    succeeded: results.filter(r => r.success).length,
-    failed: results.filter(r => !r.success).length,
-    details: results,
   };
 };
 
@@ -108,7 +58,6 @@ export const groupNodes: CommandHandler = async (params) => {
     throw new Error('groupNodes requires at least 2 nodeIds');
   }
 
-  // 收集所有节点
   const nodes: SceneNode[] = [];
   for (const id of nodeIds) {
     const node = figma.getNodeById(id);
@@ -118,12 +67,10 @@ export const groupNodes: CommandHandler = async (params) => {
     nodes.push(node as SceneNode);
   }
 
-  // 创建 Frame 作为分组容器
   const groupFrame = figma.createFrame();
   groupFrame.name = name || 'Group';
   groupFrame.layoutMode = 'NONE';
 
-  // 计算所有节点的边界框
   let minX = Infinity, minY = Infinity;
   let maxX = -Infinity, maxY = -Infinity;
 
@@ -137,7 +84,6 @@ export const groupNodes: CommandHandler = async (params) => {
     }
   }
 
-  // 设置分组容器的尺寸和位置
   if (minX !== Infinity) {
     const parent = parentId
       ? figma.getNodeById(parentId)
@@ -156,9 +102,7 @@ export const groupNodes: CommandHandler = async (params) => {
     groupFrame.resizeWithoutConstraints(maxX - minX || 1, maxY - minY || 1);
   }
 
-  // 将节点移动到分组容器中
   for (const node of nodes) {
-    // 转换绝对坐标到分组内的相对坐标
     const nodeBounds = node.absoluteBoundingBox;
     const groupBounds = groupFrame.absoluteBoundingBox;
     if (nodeBounds && groupBounds) {
@@ -175,7 +119,6 @@ export const groupNodes: CommandHandler = async (params) => {
     }
   }
 
-  // 将分组容器添加到目标父节点
   const targetParentId = parentId || nodes[0].parent?.id;
   if (targetParentId) {
     const targetParent = figma.getNodeById(targetParentId);
@@ -215,7 +158,6 @@ export const ungroupNodes: CommandHandler = async (params) => {
       continue;
     }
 
-    // 只处理 FRAME 类型（Group 在 Figma 中实际上是 Frame）
     if (node.type !== 'FRAME') {
       results.push({
         nodeId: id,
@@ -237,14 +179,12 @@ export const ungroupNodes: CommandHandler = async (params) => {
       continue;
     }
 
-    // 获取 frame 在父节点中的位置
     const frameIndex = (parent as ChildrenMixin).children.indexOf(frame);
 
     // 将子节点逐个移出（使用递增索引避免偏移错误）
     const children = [...frame.children];
     let insertIdx = frameIndex;
     for (const child of children) {
-      // 转换坐标
       const childBounds = child.absoluteBoundingBox;
       const frameBounds = frame.absoluteBoundingBox;
       if (childBounds && frameBounds && parent && 'absoluteBoundingBox' in parent) {
@@ -259,9 +199,7 @@ export const ungroupNodes: CommandHandler = async (params) => {
       insertIdx++;
     }
 
-    // 移除空的 frame
     frame.remove();
-
     results.push({ nodeId: id, ungrouped: true });
   }
 
@@ -321,8 +259,6 @@ export const swapComponent: CommandHandler = async (params) => {
     swapped: true,
   };
 };
-
-// ─── 导出所有修改 handler ───────────────────────────────────
 
 export const modifyHandlers: Record<string, CommandHandler> = {
   duplicateNode,

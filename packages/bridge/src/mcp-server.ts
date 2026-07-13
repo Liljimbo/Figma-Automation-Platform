@@ -45,7 +45,6 @@ export class BridgeMCPServer {
   private transport: StdioServerTransport;
 
   constructor(commandRouter: CommandRouter, eventQueue: PluginEvent[] = []) {
-    // 创建 Primitive Executor —— 通过 CommandRouter 发送命令到 Plugin
     const executor: PrimitiveExecutor = async (cmd, params) => {
       const result = await commandRouter.sendCommand(cmd, params);
       if (!result.success) {
@@ -56,15 +55,12 @@ export class BridgeMCPServer {
 
     this.semanticTools = new SemanticTools(executor, eventQueue);
 
-    // 创建 MCP Server
     this.mcp = new McpServer({
       name: 'figma-forge',
       version: '0.1.0',
     });
 
     this.transport = new StdioServerTransport();
-
-    // 注册所有 Semantic Tools
     this.registerTools();
   }
 
@@ -109,17 +105,14 @@ export class BridgeMCPServer {
     console.log(`[MCP] Registered ${TOOL_DEFINITIONS.length} tools`);
   }
 
-  /** 获取语义注册表（用于其他模块查询） */
   getRegistry() {
     return this.semanticTools.getRegistry();
   }
 
-  /** 获取 SemanticTools 实例（供 HTTP Server 使用） */
   getSemanticTools() {
     return this.semanticTools;
   }
 
-  /** 启动 MCP Server */
   async start() {
     await this.mcp.connect(this.transport);
     console.log('[MCP] Server started (stdio)');
