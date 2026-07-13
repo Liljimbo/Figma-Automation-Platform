@@ -1,0 +1,47 @@
+{
+  "name": "@figma-forge/core",
+  "version": "0.1.0",
+  "description": "Bridge Server for Figma Forge — MCP + WebSocket + REST API",
+  "type": "module",
+  "bin": {
+    "figma-forge": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "dist/plugin"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:cli": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js \"--banner:js=#!/usr/bin/env node\" --external:ws --external:@modelcontextprotocol/sdk --external:uuid --external:@figma-forge/shared",
+    "copy-plugin": "node -e \"const fs=require('fs'),p=require('path');const src=p.resolve(__dirname,'../plugin');const dest=p.resolve(__dirname,'dist/plugin');if(!fs.existsSync(src)){console.log('⚠️  Plugin source not found, skipping');process.exit(0);}fs.mkdirSync(dest,{recursive:true});const copies=[['manifest.json','manifest.json'],['ui.html','ui.html'],['dist/code.js','dist/code.js']];for(const[s,d]of copies){const sp=p.join(src,s);const dp=p.join(dest,d);fs.mkdirSync(p.dirname(dp),{recursive:true});if(fs.existsSync(sp)){fs.copyFileSync(sp,dp);}}console.log('✅ Plugin files copied to dist/plugin/')\"",
+    "dev": "node --watch --loader ts-node/esm src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "pnpm build && pnpm build:cli && pnpm copy-plugin"
+  },
+  "dependencies": {
+    "@figma-forge/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "uuid": "^11.1.0",
+    "ws": "^8.18.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.5.0",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.7.0"
+  }
+}

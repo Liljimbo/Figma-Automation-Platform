@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "figma-forge": {
+      "command": "node",
+      "args": [
+        "C:\\Users\\a1808\\Desktop\\Figma-Forge\\packages\\bridge\\dist\\index.js"
+      ]
+    }
+  }
+}

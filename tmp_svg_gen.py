@@ -1,0 +1,254 @@
+import os, base64
+
+# Use Windows temp dir
+tmpdir = os.environ.get('TEMP', os.environ.get('TMP', '.'))
+out_svg = os.path.join(tmpdir, 'emile_brand.svg')
+out_url = os.path.join(tmpdir, 'emile_dataurl.txt')
+project_svg = os.path.join(os.path.dirname(__file__), 'emile_brand.svg')
+
+svg_content = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 2600" width="1400" height="2600">
+  <defs>
+    <style>
+      .title { font-family: "Microsoft YaHei", "SimHei", "PingFang SC", sans-serif; font-weight: bold; }
+      .body { font-family: "Microsoft YaHei", "SimHei", "PingFang SC", sans-serif; }
+      .en { font-family: "Inter", "Segoe UI", Arial, sans-serif; }
+    </style>
+  </defs>
+
+  <rect width="1400" height="2600" fill="#FAFAFA" rx="20"/>
+
+  <!-- HEADER -->
+  <text x="700" y="70" text-anchor="middle" class="title" font-size="44" fill="#1A1A1A">饿美了 — 品牌视觉设计规范</text>
+  <text x="700" y="110" text-anchor="middle" class="en" font-size="15" fill="#AAAAAA" letter-spacing="2">E-MEI-LE Brand Visual Identity System</text>
+  <line x1="100" y1="135" x2="1300" y2="135" stroke="#E5E5E5" stroke-width="1"/>
+
+  <!-- MAIN LOGO SECTION -->
+  <rect x="80" y="160" width="1240" height="380" rx="16" fill="white" stroke="#EEEEEE" stroke-width="1"/>
+  <text x="120" y="200" class="body" font-size="16" font-weight="bold" fill="#FF6A00">● 主Logo展示</text>
+
+  <!-- Main Bag Icon (large) -->
+  <g transform="translate(180, 220) scale(1.4)">
+    <ellipse cx="110" cy="210" rx="70" ry="12" fill="#E8DDD0" opacity="0.5"/>
+    <path d="M55 65 C55 15 165 15 165 65" stroke="#FF6A00" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <rect x="15" y="60" width="190" height="145" rx="30" ry="30" fill="#FF6A00"/>
+    <rect x="35" y="78" width="150" height="90" rx="22" ry="22" fill="white"/>
+    <circle cx="75" cy="115" r="7" fill="#1A1A1A"/>
+    <circle cx="145" cy="115" r="7" fill="#1A1A1A"/>
+    <path d="M80 138 Q110 160 140 138" stroke="#1A1A1A" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+    <path d="M178 38 C178 26 167 21 162 30 C157 21 146 26 146 38 C146 52 162 60 162 60 C162 60 178 52 178 38Z" fill="#FF6A00"/>
+    <circle cx="17" cy="67" r="15" fill="white"/>
+  </g>
+
+  <text x="580" y="360" class="title" font-size="90" fill="#FF6A00">饿美了</text>
+  <text x="590" y="430" class="body" font-size="24" fill="#1A1A1A">— 今天，点一份期待。—</text>
+
+  <!-- LOGO VARIATIONS -->
+  <rect x="80" y="570" width="1240" height="320" rx="16" fill="white" stroke="#EEEEEE" stroke-width="1"/>
+  <text x="120" y="610" class="body" font-size="16" font-weight="bold" fill="#FF6A00">● LOGO 组合形式</text>
+
+  <g transform="translate(140, 640)">
+    <text x="0" y="0" class="body" font-size="13" fill="#999">横版组合</text>
+    <g transform="translate(0, 15) scale(0.35)">
+      <path d="M55 65 C55 15 165 15 165 65" stroke="#FF6A00" stroke-width="14" fill="none" stroke-linecap="round"/>
+      <rect x="15" y="60" width="190" height="145" rx="30" ry="30" fill="#FF6A00"/>
+      <rect x="35" y="78" width="150" height="90" rx="22" ry="22" fill="white"/>
+      <circle cx="75" cy="115" r="7" fill="#1A1A1A"/>
+      <circle cx="145" cy="115" r="7" fill="#1A1A1A"/>
+      <path d="M80 138 Q110 160 140 138" stroke="#1A1A1A" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      <path d="M178 38 C178 26 167 21 162 30 C157 21 146 26 146 38 C146 52 162 60 162 60 C162 60 178 52 178 38Z" fill="#FF6A00"/>
+    </g>
+    <text x="100" y="50" class="title" font-size="42" fill="#FF6A00">饿美了</text>
+    <text x="100" y="78" class="body" font-size="14" fill="#1A1A1A">— 今天，点一份期待。—</text>
+  </g>
+
+  <g transform="translate(500, 640)">
+    <text x="60" y="0" text-anchor="middle" class="body" font-size="13" fill="#999">竖版组合</text>
+    <g transform="translate(15, 15) scale(0.3)">
+      <path d="M55 65 C55 15 165 15 165 65" stroke="#FF6A00" stroke-width="14" fill="none" stroke-linecap="round"/>
+      <rect x="15" y="60" width="190" height="145" rx="30" ry="30" fill="#FF6A00"/>
+      <rect x="35" y="78" width="150" height="90" rx="22" ry="22" fill="white"/>
+      <circle cx="75" cy="115" r="7" fill="#1A1A1A"/>
+      <circle cx="145" cy="115" r="7" fill="#1A1A1A"/>
+      <path d="M80 138 Q110 160 140 138" stroke="#1A1A1A" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      <path d="M178 38 C178 26 167 21 162 30 C157 21 146 26 146 38 C146 52 162 60 162 60 C162 60 178 52 178 38Z" fill="#FF6A00"/>
+    </g>
+    <text x="60" y="95" text-anchor="middle" class="title" font-size="38" fill="#FF6A00">饿美了</text>
+    <text x="60" y="120" text-anchor="middle" class="body" font-size="12" fill="#1A1A1A">— 今天，点一份期待。—</text>
+  </g>
+
+  <g transform="translate(780, 640)">
+    <text x="100" y="0" text-anchor="middle" class="body" font-size="13" fill="#999">圆形适配</text>
+    <circle cx="60" cy="70" r="55" fill="#FF6A00"/>
+    <g transform="translate(15, 22) scale(0.22)">
+      <rect x="15" y="60" width="190" height="145" rx="30" ry="30" fill="white"/>
+      <rect x="35" y="78" width="150" height="90" rx="22" ry="22" fill="#FF6A00"/>
+      <circle cx="75" cy="115" r="7" fill="#1A1A1A"/>
+      <circle cx="145" cy="115" r="7" fill="#1A1A1A"/>
+      <path d="M80 138 Q110 160 140 138" stroke="#1A1A1A" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+    </g>
+    <text x="135" y="60" class="title" font-size="38" fill="#FF6A00">饿美了</text>
+    <text x="135" y="88" class="body" font-size="13" fill="#1A1A1A">— 今天，点一份期待。—</text>
+  </g>
+
+  <!-- APP ICON & MONO SECTION -->
+  <rect x="80" y="920" width="600" height="250" rx="16" fill="white" stroke="#EEEEEE" stroke-width="1"/>
+  <text x="120" y="960" class="body" font-size="16" font-weight="bold" fill="#FF6A00">● App 图标</text>
+
+  <rect x="130" y="985" width="100" height="100" rx="22" fill="#FF6A00"/>
+  <g transform="translate(147, 990) scale(0.2)">
+    <path d="M55 65 C55 15 165 15 165 65" stroke="white" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <rect x="15" y="60" width="190" height="145" rx="30" ry="30" fill="white"/>
+    <rect x="35" y="78" width="150" height="90" rx="22" ry="22" fill="#FF6A00"/>
+    <circle cx="75" cy="115" r="7" fill="white"/>
+    <circle cx="145" cy="115" r="7" fill="white"/>
+    <path d="M80 138 Q110 160 140 138" stroke="white" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <rect x="255" y="985" width="100" height="100" rx="22" fill="white" stroke="#EEEEEE" stroke-width="1"/>
+  <g transform="translate(272, 990) scale(0.2)">
+    <path d="M55 65 C55 15 165 15 165 65" stroke="#FF6A00" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <rect x="15" y="60" width="190" height="145" rx="30" ry="30" fill="#FF6A00"/>
+    <rect x="35" y="78" width="150" height="90" rx="22" ry="22" fill="white"/>
+    <circle cx="75" cy="115" r="7" fill="#1A1A1A"/>
+    <circle cx="145" cy="115" r="7" fill="#1A1A1A"/>
+    <path d="M80 138 Q110 160 140 138" stroke="#1A1A1A" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <rect x="380" y="985" width="100" height="100" rx="22" fill="#FF6A00"/>
+  <text x="430" y="1048" text-anchor="middle" class="title" font-size="22" fill="white">饿美了</text>
+
+  <rect x="505" y="985" width="100" height="100" rx="22" fill="white" stroke="#EEEEEE" stroke-width="1"/>
+  <text x="555" y="1048" text-anchor="middle" class="title" font-size="22" fill="#FF6A00">饿美了</text>
+
+  <!-- Monochrome Section -->
+  <rect x="700" y="920" width="620" height="250" rx="16" fill="white" stroke="#EEEEEE" stroke-width="1"/>
+  <text x="740" y="960" class="body" font-size="16" font-weight="bold" fill="#FF6A00">● 单色版本</text>
+  <g transform="translate(780, 980) scale(0.4)">
+    <path d="M55 65 C55 15 165 15 165 65" stroke="#1A1A1A" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <rect x="15" y="60" width="190" height="145" rx="30" ry="30" fill="#1A1A1A"/>
+    <rect x="35" y="78" width="150" height="90" rx="22" ry="22" fill="white"/>
+    <circle cx="75" cy="115" r="7" fill="#1A1A1A"/>
+    <circle cx="145" cy="115" r="7" fill="#1A1A1A"/>
+    <path d="M80 138 Q110 160 140 138" stroke="#1A1A1A" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+    <path d="M178 38 C178 26 167 21 162 30 C157 21 146 26 146 38 C146 52 162 60 162 60 C162 60 178 52 178 38Z" fill="#1A1A1A"/>
+  </g>
+  <text x="920" y="1040" class="title" font-size="52" fill="#1A1A1A">饿美了</text>
+  <text x="920" y="1080" class="body" font-size="16" fill="#1A1A1A">— 今天，点一份期待。—</text>
+
+  <!-- DESIGN MEANING -->
+  <rect x="80" y="1200" width="760" height="340" rx="16" fill="white" stroke="#EEEEEE" stroke-width="1"/>
+  <text x="120" y="1240" class="body" font-size="16" font-weight="bold" fill="#FF6A00">● 设计释义</text>
+
+  <g transform="translate(140, 1270)">
+    <g transform="scale(0.25)">
+      <rect x="15" y="20" width="190" height="145" rx="30" ry="30" fill="#FF6A00"/>
+      <rect x="35" y="38" width="150" height="90" rx="22" ry="22" fill="white"/>
+      <path d="M55 20 C55 -30 165 -30 165 20" stroke="#FF6A00" stroke-width="14" fill="none" stroke-linecap="round"/>
+    </g>
+    <text x="55" y="15" class="body" font-size="16" font-weight="bold" fill="#1A1A1A">外卖袋造型</text>
+    <text x="55" y="38" class="body" font-size="13" fill="#888">代表外卖与期待的载体</text>
+  </g>
+
+  <g transform="translate(420, 1270)">
+    <path d="M20 8 C20 0 10 -3 6 5 C1 -3 -9 0 -9 8 C-9 20 6 28 6 28 C6 28 20 20 20 8Z" fill="#FF6A00" transform="translate(15, 5) scale(0.8)"/>
+    <text x="55" y="15" class="body" font-size="16" font-weight="bold" fill="#1A1A1A">微笑表情</text>
+    <text x="55" y="38" class="body" font-size="13" fill="#888">传递温暖，陪伴与好心情</text>
+  </g>
+
+  <g transform="translate(140, 1370)">
+    <path d="M5 10 Q20 25 35 10" stroke="#FF6A00" stroke-width="4" fill="none" stroke-linecap="round" transform="translate(10, 2)"/>
+    <circle cx="12" cy="2" r="3" fill="#FF6A00"/>
+    <circle cx="38" cy="2" r="3" fill="#FF6A00"/>
+    <text x="55" y="15" class="body" font-size="16" font-weight="bold" fill="#1A1A1A">一口咬痕</text>
+    <text x="55" y="38" class="body" font-size="13" fill="#888">增加记忆点，体现"忍不住期待"的感觉</text>
+  </g>
+
+  <!-- COLOR PALETTE -->
+  <rect x="860" y="1200" width="460" height="340" rx="16" fill="white" stroke="#EEEEEE" stroke-width="1"/>
+  <text x="900" y="1240" class="body" font-size="16" font-weight="bold" fill="#FF6A00">● 品牌色彩</text>
+
+  <circle cx="960" cy="1310" r="40" fill="#FF6A00"/>
+  <text x="960" y="1370" text-anchor="middle" class="body" font-size="14" font-weight="bold" fill="#1A1A1A">主色 · 橙</text>
+  <text x="960" y="1392" text-anchor="middle" class="en" font-size="13" fill="#888">#FF6A00</text>
+
+  <circle cx="1090" cy="1310" r="40" fill="white" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="1090" y="1370" text-anchor="middle" class="body" font-size="14" font-weight="bold" fill="#1A1A1A">背景白</text>
+  <text x="1090" y="1392" text-anchor="middle" class="en" font-size="13" fill="#888">#FFFFFF</text>
+
+  <circle cx="1220" cy="1310" r="40" fill="#1A1A1A"/>
+  <text x="1220" y="1370" text-anchor="middle" class="body" font-size="14" font-weight="bold" fill="#1A1A1A">点缀黑</text>
+  <text x="1220" y="1392" text-anchor="middle" class="en" font-size="13" fill="#888">#1A1A1A</text>
+
+  <rect x="900" y="1420" width="80" height="30" rx="6" fill="#FF8533"/>
+  <rect x="995" y="1420" width="80" height="30" rx="6" fill="#FFB366"/>
+  <rect x="1090" y="1420" width="80" height="30" rx="6" fill="#FFD9B3"/>
+  <rect x="1185" y="1420" width="80" height="30" rx="6" fill="#FFF2E6"/>
+  <text x="940" y="1470" text-anchor="middle" class="en" font-size="11" fill="#888">#FF8533</text>
+  <text x="1035" y="1470" text-anchor="middle" class="en" font-size="11" fill="#888">#FFB366</text>
+  <text x="1130" y="1470" text-anchor="middle" class="en" font-size="11" fill="#888">#FFD9B3</text>
+  <text x="1225" y="1470" text-anchor="middle" class="en" font-size="11" fill="#888">#FFF2E6</text>
+
+  <!-- BRAND PHILOSOPHY -->
+  <rect x="80" y="1570" width="1240" height="340" rx="16" fill="white" stroke="#EEEEEE" stroke-width="1"/>
+  <text x="120" y="1610" class="body" font-size="16" font-weight="bold" fill="#FF6A00">● 品牌理念</text>
+
+  <g transform="translate(180, 1660)">
+    <circle cx="0" cy="0" r="30" fill="#FFF2E6"/>
+    <text x="0" y="8" text-anchor="middle" font-size="28">&#x1F372;</text>
+    <text x="0" y="55" text-anchor="middle" class="body" font-size="14" fill="#1A1A1A">一份外卖</text>
+  </g>
+  <text x="265" y="1665" class="body" font-size="20" fill="#CCCCCC">&#x2192;</text>
+
+  <g transform="translate(340, 1660)">
+    <circle cx="0" cy="0" r="30" fill="#FFF2E6"/>
+    <text x="0" y="8" text-anchor="middle" font-size="28">&#x1F6F5;</text>
+    <text x="0" y="55" text-anchor="middle" class="body" font-size="14" fill="#1A1A1A">正在路上</text>
+  </g>
+  <text x="425" y="1665" class="body" font-size="20" fill="#CCCCCC">&#x2192;</text>
+
+  <g transform="translate(500, 1660)">
+    <circle cx="0" cy="0" r="30" fill="#FFF2E6"/>
+    <text x="0" y="8" text-anchor="middle" font-size="28">&#x1F9E1;</text>
+    <text x="0" y="55" text-anchor="middle" class="body" font-size="14" fill="#1A1A1A">温暖陪伴</text>
+  </g>
+  <text x="585" y="1665" class="body" font-size="20" fill="#CCCCCC">&#x2192;</text>
+
+  <g transform="translate(660, 1660)">
+    <circle cx="0" cy="0" r="30" fill="#FFF2E6"/>
+    <text x="0" y="8" text-anchor="middle" font-size="28">&#x1F381;</text>
+    <text x="0" y="55" text-anchor="middle" class="body" font-size="14" fill="#1A1A1A">充满惊喜</text>
+  </g>
+  <text x="745" y="1665" class="body" font-size="20" fill="#CCCCCC">&#x2192;</text>
+
+  <g transform="translate(820, 1660)">
+    <circle cx="0" cy="0" r="30" fill="#FFF2E6"/>
+    <text x="0" y="8" text-anchor="middle" font-size="28">&#x1F60A;</text>
+    <text x="0" y="55" text-anchor="middle" class="body" font-size="14" fill="#1A1A1A">留下期待</text>
+  </g>
+
+  <!-- Brand Statement -->
+  <text x="700" y="1800" text-anchor="middle" class="title" font-size="36" fill="#FF6A00">饿美了</text>
+  <text x="700" y="1835" text-anchor="middle" class="body" font-size="18" fill="#1A1A1A">— 今天，点一份期待。—</text>
+  <text x="700" y="1870" text-anchor="middle" class="body" font-size="14" fill="#888">不仅是一份外卖，更是一段温暖的等待旅程。</text>
+  <text x="700" y="1893" text-anchor="middle" class="body" font-size="14" fill="#888">每一次打开，都是新的期待。</text>
+
+  <!-- FOOTER -->
+  <line x1="100" y1="1940" x2="1300" y2="1940" stroke="#E5E5E5" stroke-width="1"/>
+  <text x="700" y="1975" text-anchor="middle" class="en" font-size="12" fill="#CCCCCC">2026 饿美了 E-MEI-LE Brand Identity Design Specification v1.0</text>
+</svg>"""
+
+with open(out_svg, 'w', encoding='utf-8') as f:
+    f.write(svg_content)
+with open(project_svg, 'w', encoding='utf-8') as f:
+    f.write(svg_content)
+
+b64 = base64.b64encode(svg_content.encode('utf-8')).decode('ascii')
+data_url = f'data:image/svg+xml;base64,{b64}'
+
+with open(out_url, 'w') as f:
+    f.write(data_url)
+
+print(f'SVG saved: {len(svg_content)} chars')
+print(f'Base64 length: {len(b64)}')
+print(f'Files: {out_svg}, {project_svg}, {out_url}')
+print('Done!')

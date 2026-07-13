@@ -1,0 +1,20 @@
+{
+  "name": "@figma-forge/plugin",
+  "version": "0.1.0",
+  "description": "Figma Plugin for Figma Forge — executes commands via Plugin API",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc && node esbuild.config.mjs",
+    "bundle": "node esbuild.config.mjs",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@figma-forge/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.100.0",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.7.0"
+  }
+}
