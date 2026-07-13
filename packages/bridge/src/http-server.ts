@@ -5,6 +5,7 @@
 
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import type { SemanticTools } from './semantic/tools.js';
+import { TOOL_DEFINITIONS } from './semantic/tools.js';
 
 export class HttpServer {
   private server: ReturnType<typeof createServer> | null = null;
@@ -39,9 +40,9 @@ export class HttpServer {
             this.json(res, 200, { status: 'ok', version: '0.1.0' });
           } else if (req.method === 'GET' && path === '/tools') {
             // 列出所有可用工具
-            const registry = this.semanticTools.getRegistry();
             this.json(res, 200, {
-              tools: registry.getMap ? Array.from(registry.getMap().values()) : [],
+              tools: TOOL_DEFINITIONS,
+              count: TOOL_DEFINITIONS.length,
               note: 'Use POST /tools/:toolName to call a tool',
             });
           } else if (req.method === 'POST' && path.startsWith('/tools/')) {

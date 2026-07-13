@@ -37,6 +37,8 @@ interface FigmaEffect {
   radius?: number;
   color?: { r: number; g: number; b: number; a?: number };
   spread?: number;
+  visible?: boolean;
+  blendMode?: string;
 }
 
 /** 将 hex 颜色字符串转换为 Figma RGB 格式，支持 3 位和 6 位 hex */
@@ -1317,7 +1319,7 @@ export class SemanticTools {
       cardStrokes = [{ type: 'SOLID', color: hexToRgb('#E5E7EB') }];
       cardStrokeWeight = 1;
     } else if (variant === 'elevated') {
-      cardEffects = [{ type: 'DROP_SHADOW', offset: { x: 0, y: 2 }, radius: 8, color: { r: 0, g: 0, b: 0, a: 0.1 } }];
+      cardEffects = [{ type: 'DROP_SHADOW', offset: { x: 0, y: 2 }, radius: 8, color: { r: 0, g: 0, b: 0, a: 0.1 }, visible: true, blendMode: 'NORMAL' }];
     }
 
     const card = await this.primitives.createNode({
@@ -1842,7 +1844,7 @@ export class SemanticTools {
 
     await this.primitives.setLayout({
       nodeId: grid.id,
-      direction: 'VERTICAL',
+      direction: 'HORIZONTAL',
       itemSpacing: gap as number,
       layoutWrap: 'WRAP',
     });
@@ -2031,7 +2033,7 @@ export class SemanticTools {
       width: width as number,
       cornerRadius: 12,
       fills: parseFills('#FFFFFF'),
-      effects: [{ type: 'DROP_SHADOW', offset: { x: 0, y: 4 }, radius: 24, color: { r: 0, g: 0, b: 0, a: 0.15 } }] as FigmaEffect[],
+      effects: [{ type: 'DROP_SHADOW', offset: { x: 0, y: 4 }, radius: 24, color: { r: 0, g: 0, b: 0, a: 0.15 }, visible: true, blendMode: 'NORMAL' }] as FigmaEffect[],
     });
 
     await this.primitives.setLayout({

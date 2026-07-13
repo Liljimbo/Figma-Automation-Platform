@@ -37,9 +37,19 @@ export class TemplateRegistry {
     parameters: Record<string, unknown> = {},
     parentId?: string
   ): Array<{ tool: string; params: Record<string, unknown> }> {
+    // 合并默认值：模板定义的 default < 用户传入的 parameters
+    const mergedParams = { ...parameters };
+    if (template.parameters) {
+      for (const [key, def] of Object.entries(template.parameters)) {
+        if (!(key in mergedParams) && def && typeof def === 'object' && 'default' in def) {
+          mergedParams[key] = (def as { default: unknown }).default;
+        }
+      }
+    }
+
     return template.tools.map(entry => {
       const params = JSON.parse(JSON.stringify(entry.params));
-      this.resolveParams(params, parameters);
+      this.resolveParams(params, mergedParams);
       if (parentId && !params.parentId) {
         params.parentId = parentId;
       }
@@ -47,13 +57,21 @@ export class TemplateRegistry {
     });
   }
 
-  /** 递归替换参数占位符（格式：${paramName}） */
+  /** 递归替换参数占位符（格式：${paramName}），支持嵌入式替换 */
   private resolveParams(obj: Record<string, unknown>, parameters: Record<string, unknown>): void {
     for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === 'string' && value.startsWith('${') && value.endsWith('}')) {
-        const paramName = value.slice(2, -1);
-        if (paramName in parameters) {
-          obj[key] = parameters[paramName];
+      if (typeof value === 'string') {
+        // 完整匹配：值就是 "${paramName}"
+        if (value.startsWith('${') && value.endsWith('}')) {
+          const paramName = value.slice(2, -1);
+          if (paramName in parameters) {
+            obj[key] = parameters[paramName];
+          }
+        // 嵌入式匹配：字符串中包含 "${paramName}"
+        } else if (value.includes('${')) {
+          obj[key] = value.replace(/\$\{(\w+)\}/g, (_, paramName) => {
+            return paramName in parameters ? String(parameters[paramName]) : `\${${paramName}}`;
+          });
         }
       } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         this.resolveParams(value as Record<string, unknown>, parameters);

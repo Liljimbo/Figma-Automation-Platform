@@ -20,9 +20,15 @@ const createVariableCollection: CommandHandler = async (params) => {
   const defaultMode = collection.modes[0];
   collection.renameMode(defaultMode.modeId, modes[0]);
 
-  // 添加额外的 modes
+  // 添加额外的 modes（免费版可能限制为 1 个 mode）
+  const addedModes = [];
   for (let i = 1; i < modes.length; i++) {
-    collection.addMode(modes[i]);
+    try {
+      collection.addMode(modes[i]);
+      addedModes.push(modes[i]);
+    } catch (err) {
+      // Figma 免费版限制为 1 个 mode，忽略错误
+    }
   }
 
   return {
