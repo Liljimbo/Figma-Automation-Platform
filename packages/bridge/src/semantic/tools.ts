@@ -1176,14 +1176,16 @@ export class SemanticTools {
     });
 
     if (direction || padding !== undefined || gap !== undefined) {
+      const p = typeof padding === 'number' ? padding : 0;
+      const g = typeof gap === 'number' ? gap : 0;
       await this.primitives.setLayout({
         nodeId: node.id,
         direction: (direction as 'HORIZONTAL' | 'VERTICAL') || 'VERTICAL',
-        paddingLeft: (padding as number) || 0,
-        paddingRight: (padding as number) || 0,
-        paddingTop: (padding as number) || 0,
-        paddingBottom: (padding as number) || 0,
-        itemSpacing: (gap as number) || 0,
+        paddingLeft: p,
+        paddingRight: p,
+        paddingTop: p,
+        paddingBottom: p,
+        itemSpacing: g,
       });
     }
 
@@ -1836,6 +1838,9 @@ export class SemanticTools {
   private async createGrid(params: Record<string, unknown>): Promise<SemanticResult> {
     const { name, columns = 3, rows = 1, gap = 16, cellWidth, cellHeight, parentId } = params;
 
+    const cols = Math.max(1, Math.min(100, columns as number));
+    const rowCount = Math.max(1, Math.min(100, rows as number));
+
     const grid = await this.primitives.createNode({
       type: 'FRAME',
       name: name as string,
@@ -1850,7 +1855,7 @@ export class SemanticTools {
     });
 
     // 创建单元格
-    const totalCells = (columns as number) * (rows as number);
+    const totalCells = cols * rowCount;
     for (let i = 0; i < totalCells; i++) {
       const cell = await this.primitives.createNode({
         type: 'FRAME',
@@ -2372,9 +2377,10 @@ export class SemanticTools {
     if (semantic && typeof semantic === 'string') {
       const entries = this.registry.findByType(semantic);
       if (name && typeof name === 'string') {
-        // 进一步过滤名称
+        // 进一步过滤名称（转义正则特殊字符后再替换通配符）
+        const escaped = (name as string).replace(/[.+^${}()|[\]\\]/g, '\\$&');
         const regex = new RegExp(
-          '^' + (name as string).replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
+          '^' + escaped.replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
           'i'
         );
         const filtered = entries.filter(e => regex.test(e.name));
@@ -2626,17 +2632,18 @@ export class SemanticTools {
       if (!result.success) {
         if (rollback && createdNodeIds.length > 0) {
           // 回滚：逆序删除已创建的节点
+          const rollbackErrors: string[] = [];
           for (let i = createdNodeIds.length - 1; i >= 0; i--) {
             try {
               await this.primitives.deleteNode({ nodeId: createdNodeIds[i] });
-            } catch {
-              // 忽略删除失败
+            } catch (rErr) {
+              rollbackErrors.push(`${createdNodeIds[i]}: ${rErr instanceof Error ? rErr.message : String(rErr)}`);
             }
           }
           return {
             success: false,
             error: `Batch failed at step ${results.length - 1} (${c.tool}): ${result.error}. Rolled back ${createdNodeIds.length} nodes.`,
-            data: { results, executed: results.length, total: commands.length, rolledBack: true, rolledBackCount: createdNodeIds.length },
+            data: { results, executed: results.length, total: commands.length, rolledBack: true, rolledBackCount: createdNodeIds.length, rollbackErrors },
           };
         }
         break;
@@ -2786,6 +2793,7 @@ export class SemanticTools {
 
     // 应用变更
     const applied: string[] = [];
+    const errors: Array<{ diff: string; error: string }> = [];
     for (const diff of diffs) {
       try {
         if (diff.type === 'modify' && diff.properties) {
@@ -2807,13 +2815,16 @@ export class SemanticTools {
           applied.push(`remove:${diff.id}`);
         }
       } catch (err) {
-        // 单个变更失败不中断整个应用
+        errors.push({
+          diff: `${diff.type}:${diff.id}`,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
     return {
-      success: true,
-      data: { diffs: diffs.length, applied: applied.length, changes: applied },
+      success: errors.length === 0,
+      data: { diffs: diffs.length, applied: applied.length, changes: applied, errors },
     };
   }
 
