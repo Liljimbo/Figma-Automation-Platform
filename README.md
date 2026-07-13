@@ -115,7 +115,7 @@ npx @figma-forge/core setup
 **方式二：从源码**
 
 ```bash
-git clone <repo-url> && cd figma-automation-platform
+git clone <repo-url> && cd Figma-Forge
 pnpm install && pnpm build
 ```
 

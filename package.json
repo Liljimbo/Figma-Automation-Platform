@@ -1,5 +1,5 @@
 {
-  "name": "figma-automation-platform",
+  "name": "figma-forge",
   "private": true,
   "description": "Claude Code ↔ Figma 双向操控平台（基于 Plugin API + MCP）",
   "scripts": {
