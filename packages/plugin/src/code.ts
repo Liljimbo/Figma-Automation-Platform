@@ -7,6 +7,9 @@ import { serializeNode } from './utils/serialize.js';
 import { readHandlers } from './commands/read.js';
 import { createHandlers } from './commands/create.js';
 import { modifyHandlers } from './commands/modify.js';
+import { variablesHandlers } from './commands/variables.js';
+import { variantsHandlers } from './commands/variants.js';
+import { eventsHandlers } from './commands/events.js';
 
 // ─── Command Handlers ──────────────────────────────────────
 
@@ -198,6 +201,26 @@ registerHandler('setMultipleProperties', modifyHandlers.setMultipleProperties);
 registerHandler('groupNodes', modifyHandlers.groupNodes);
 registerHandler('ungroupNodes', modifyHandlers.ungroupNodes);
 registerHandler('swapComponent', modifyHandlers.swapComponent);
+
+// ─── Variables Handlers (from commands/variables.ts) ───────
+registerHandler('createVariableCollection', variablesHandlers.createVariableCollection);
+registerHandler('getVariableCollections', variablesHandlers.getVariableCollections);
+registerHandler('createVariable', variablesHandlers.createVariable);
+registerHandler('getVariables', variablesHandlers.getVariables);
+registerHandler('updateVariableValue', variablesHandlers.updateVariableValue);
+registerHandler('deleteVariable', variablesHandlers.deleteVariable);
+registerHandler('addVariableMode', variablesHandlers.addVariableMode);
+registerHandler('assignVariableToNode', variablesHandlers.assignVariableToNode);
+
+// ─── Variants Handlers (from commands/variants.ts) ────────
+registerHandler('createComponentSet', variantsHandlers.createComponentSet);
+registerHandler('getComponentSets', variantsHandlers.getComponentSets);
+registerHandler('createVariantInstance', variantsHandlers.createVariantInstance);
+registerHandler('setVariantProperties', variantsHandlers.setVariantProperties);
+
+// ─── Event Listeners (from commands/events.ts) ───────────
+registerHandler('startListening', eventsHandlers.startListening);
+registerHandler('stopListening', eventsHandlers.stopListening);
 
 // ─── Message Handler ───────────────────────────────────────
 

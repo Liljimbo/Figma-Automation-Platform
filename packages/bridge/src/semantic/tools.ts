@@ -9,6 +9,7 @@
 
 import type { SemanticToolDefinition, SemanticResult, PrimitiveExecutor } from './types.js';
 import type { SemanticEntry } from './types.js';
+import type { PluginEvent, StartListeningParams } from '@figma-bridge/shared';
 import { SemanticRegistry } from './registry.js';
 import { Primitives } from './primitives.js';
 
@@ -664,7 +665,7 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
   // ── 系统工具 ──
   {
     name: 'batch_execute',
-    description: '批量执行多个语义工具命令，按顺序依次执行',
+    description: '批量执行多个语义工具命令，按顺序依次执行。支持 rollback 模式：失败时自动回滚已创建的节点',
     inputSchema: {
       type: 'object',
       properties: {
@@ -679,8 +680,201 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
           },
           description: '要执行的命令列表',
         },
+        rollback: {
+          type: 'boolean',
+          description: '是否在失败时回滚已创建的节点',
+          default: false,
+        },
       },
       required: ['commands'],
+    },
+  },
+
+  // ── Variables 工具 ──
+  {
+    name: 'create_variable_collection',
+    description: '创建变量集合（设计 Token 分组），支持多个模式（如 light/dark）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '集合名称' },
+        modes: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '模式列表，如 ["light", "dark"]，第一个为默认模式',
+        },
+      },
+      required: ['name', 'modes'],
+    },
+  },
+  {
+    name: 'get_variable_collections',
+    description: '获取所有变量集合（设计 Token 分组）',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'create_variable',
+    description: '创建设计变量（Token），支持 BOOLEAN/COLOR/FLOAT/STRING 类型',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '变量名称，如 "color/primary"' },
+        collectionId: { type: 'string', description: '所属变量集合 ID' },
+        resolvedType: {
+          type: 'string',
+          enum: ['BOOLEAN', 'COLOR', 'FLOAT', 'STRING'],
+          description: '变量值类型',
+        },
+        valuesByMode: {
+          type: 'object',
+          description: '各模式下的值，key 为 modeId，value 为对应值',
+        },
+      },
+      required: ['name', 'collectionId', 'resolvedType', 'valuesByMode'],
+    },
+  },
+  {
+    name: 'get_variables',
+    description: '获取设计变量列表，可按类型和集合过滤',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        type: {
+          type: 'string',
+          enum: ['BOOLEAN', 'COLOR', 'FLOAT', 'STRING'],
+          description: '按变量类型过滤',
+        },
+        collectionId: { type: 'string', description: '按集合 ID 过滤' },
+      },
+    },
+  },
+  {
+    name: 'update_variable',
+    description: '更新设计变量在指定模式下的值',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        variableId: { type: 'string', description: '变量 ID' },
+        modeId: { type: 'string', description: '模式 ID' },
+        value: { type: 'string', description: '新值（类型需匹配变量的 resolvedType，COLOR 类型传 hex 字符串）' },
+      },
+      required: ['variableId', 'modeId', 'value'],
+    },
+  },
+  {
+    name: 'delete_variable',
+    description: '删除设计变量',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        variableId: { type: 'string', description: '要删除的变量 ID' },
+      },
+      required: ['variableId'],
+    },
+  },
+
+  // ── Component Variants 工具 ──
+  {
+    name: 'create_component_set',
+    description: '创建组件变体集，包含多个变体（如 Size=Small/Size=Large）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '组件集名称' },
+        variants: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: '变体名称' },
+              properties: { type: 'object', description: '变体属性，如 {"Size": "Large", "State": "Default"}' },
+              width: { type: 'number', description: '宽度' },
+              height: { type: 'number', description: '高度' },
+            },
+            required: ['name', 'properties'],
+          },
+          description: '变体列表',
+        },
+        parentId: { type: 'string', description: '父节点 ID' },
+      },
+      required: ['name', 'variants'],
+    },
+  },
+  {
+    name: 'get_component_sets',
+    description: '获取当前页面的所有组件变体集',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'create_variant_instance',
+    description: '通过变体属性创建组件实例',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        componentSetId: { type: 'string', description: '组件集 ID' },
+        variantProperties: { type: 'object', description: '要匹配的变体属性，如 {"Size": "Large"}' },
+        parentId: { type: 'string', description: '父节点 ID' },
+      },
+      required: ['componentSetId', 'variantProperties'],
+    },
+  },
+  {
+    name: 'update_variant',
+    description: '更新组件变体的属性（重命名组件以反映新的变体属性）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        componentId: { type: 'string', description: '组件 ID' },
+        properties: { type: 'object', description: '要更新的变体属性' },
+      },
+      required: ['componentId', 'properties'],
+    },
+  },
+
+  // ── Event Listener 工具 ──
+  {
+    name: 'start_event_listener',
+    description: '开始监听 Figma 文档事件（选区变化、文档变化、页面切换）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        events: {
+          type: 'array',
+          items: { type: 'string', enum: ['selectionchange', 'documentchange', 'currentpagechange'] },
+          description: '要监听的事件类型',
+        },
+      },
+      required: ['events'],
+    },
+  },
+  {
+    name: 'stop_event_listener',
+    description: '停止监听文档事件',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        events: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '要停止监听的事件类型，不传则停止所有',
+        },
+      },
+    },
+  },
+  {
+    name: 'get_pending_events',
+    description: '获取待处理的文档事件（从上次查询以来的新事件）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        since: { type: 'number', description: '只返回此时间戳之后的事件' },
+      },
     },
   },
 ];
@@ -690,10 +884,12 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
 export class SemanticTools {
   private primitives: Primitives;
   private registry: SemanticRegistry;
+  private eventQueue: PluginEvent[];
 
-  constructor(executor: PrimitiveExecutor) {
+  constructor(executor: PrimitiveExecutor, eventQueue: PluginEvent[] = []) {
     this.primitives = new Primitives(executor);
     this.registry = new SemanticRegistry();
+    this.eventQueue = eventQueue;
   }
 
   getRegistry(): SemanticRegistry {
@@ -783,6 +979,38 @@ export class SemanticTools {
         // ── 系统工具 ──
         case 'batch_execute':
           return await this.batchExecute(params);
+
+        // ── Variables 工具 ──
+        case 'create_variable_collection':
+          return await this.createVariableCollection(params);
+        case 'get_variable_collections':
+          return await this.getVariableCollections();
+        case 'create_variable':
+          return await this.createVariable(params);
+        case 'get_variables':
+          return await this.getVariables(params);
+        case 'update_variable':
+          return await this.updateVariable(params);
+        case 'delete_variable':
+          return await this.deleteVariable(params);
+
+        // ── Component Variants 工具 ──
+        case 'create_component_set':
+          return await this.createComponentSet(params);
+        case 'get_component_sets':
+          return await this.getComponentSets();
+        case 'create_variant_instance':
+          return await this.createVariantInstance(params);
+        case 'update_variant':
+          return await this.updateVariant(params);
+
+        // ── Event Listener 工具 ──
+        case 'start_event_listener':
+          return await this.startEventListener(params);
+        case 'stop_event_listener':
+          return await this.stopEventListener(params);
+        case 'get_pending_events':
+          return await this.getPendingEvents(params);
 
         default:
           return { success: false, error: `Unknown tool: ${toolName}` };
@@ -2182,21 +2410,48 @@ export class SemanticTools {
   // ─── 系统工具实现 ─────────────────────────────────────────
 
   private async batchExecute(params: Record<string, unknown>): Promise<SemanticResult> {
-    const { commands } = params;
+    const { commands, rollback } = params as {
+      commands: Array<{ tool: string; params: Record<string, unknown> }>;
+      rollback?: boolean;
+    };
 
     if (!Array.isArray(commands)) {
       return { success: false, error: 'commands must be an array' };
     }
 
     const results: Array<{ tool: string; result: SemanticResult }> = [];
+    const createdNodeIds: string[] = [];
 
     for (const cmd of commands) {
       const c = cmd as { tool: string; params: Record<string, unknown> };
       const result = await this.execute(c.tool, c.params || {});
       results.push({ tool: c.tool, result });
 
-      // 如果某个命令失败，停止执行
+      // 追踪创建的节点 ID（从 result.data 中提取）
+      if (result.success && result.data && typeof result.data === 'object') {
+        const data = result.data as Record<string, unknown>;
+        if (data.id && typeof data.id === 'string') {
+          createdNodeIds.push(data.id);
+        }
+      }
+
+      // 如果某个命令失败
       if (!result.success) {
+        if (rollback && createdNodeIds.length > 0) {
+          // 回滚：逆序删除已创建的节点
+          for (let i = createdNodeIds.length - 1; i >= 0; i--) {
+            try {
+              await this.primitives.deleteNode({ nodeId: createdNodeIds[i] });
+            } catch {
+              // 忽略删除失败
+            }
+          }
+          return {
+            success: false,
+            error: `Batch failed at step ${results.length - 1} (${c.tool}): ${result.error}. Rolled back ${createdNodeIds.length} nodes.`,
+            data: { results, executed: results.length, total: commands.length, rolledBack: true, rolledBackCount: createdNodeIds.length },
+          };
+        }
         break;
       }
     }
@@ -2204,7 +2459,114 @@ export class SemanticTools {
     const allSuccess = results.every(r => r.result.success);
     return {
       success: allSuccess,
-      data: { results, executed: results.length, total: commands.length },
+      data: { results, executed: results.length, total: commands.length, rolledBack: false },
     };
+  }
+
+  // ─── Variables 工具实现 ─────────────────────────────────────
+
+  private async createVariableCollection(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { name, modes } = params as { name: string; modes: string[] };
+    const data = await this.primitives.createVariableCollection({ name, modes });
+    return { success: true, data };
+  }
+
+  private async getVariableCollections(): Promise<SemanticResult> {
+    const data = await this.primitives.getVariableCollections();
+    return { success: true, data };
+  }
+
+  private async createVariable(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { name, collectionId, resolvedType, valuesByMode } = params as {
+      name: string;
+      collectionId: string;
+      resolvedType: 'BOOLEAN' | 'COLOR' | 'FLOAT' | 'STRING';
+      valuesByMode: Record<string, unknown>;
+    };
+    const data = await this.primitives.createVariable({ name, collectionId, resolvedType, valuesByMode });
+    return { success: true, data };
+  }
+
+  private async getVariables(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { type, collectionId } = params as {
+      type?: 'BOOLEAN' | 'COLOR' | 'FLOAT' | 'STRING';
+      collectionId?: string;
+    };
+    const data = await this.primitives.getVariables({ type, collectionId });
+    return { success: true, data };
+  }
+
+  private async updateVariable(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { variableId, modeId, value } = params as {
+      variableId: string;
+      modeId: string;
+      value: unknown;
+    };
+    const data = await this.primitives.updateVariableValue({ variableId, modeId, value });
+    return { success: true, data };
+  }
+
+  private async deleteVariable(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { variableId } = params as { variableId: string };
+    await this.primitives.deleteVariable({ variableId });
+    return { success: true, data: { deleted: true, variableId } };
+  }
+
+  // ─── Component Variants 工具实现 ───────────────────────────
+
+  private async createComponentSet(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { name, variants, parentId } = params as {
+      name: string;
+      variants: Array<{ name: string; properties: Record<string, string>; width?: number; height?: number }>;
+      parentId?: string;
+    };
+    const data = await this.primitives.createComponentSet({ name, variants, parentId });
+    return { success: true, data };
+  }
+
+  private async getComponentSets(): Promise<SemanticResult> {
+    const data = await this.primitives.getComponentSets();
+    return { success: true, data };
+  }
+
+  private async createVariantInstance(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { componentSetId, variantProperties, parentId } = params as {
+      componentSetId: string;
+      variantProperties: Record<string, string>;
+      parentId?: string;
+    };
+    const data = await this.primitives.createVariantInstance({ componentSetId, variantProperties, parentId });
+    return { success: true, data };
+  }
+
+  private async updateVariant(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { componentId, properties } = params as {
+      componentId: string;
+      properties: Record<string, string>;
+    };
+    const data = await this.primitives.setVariantProperties({ componentId, properties });
+    return { success: true, data };
+  }
+
+  // ─── Event Listener 工具实现 ─────────────────────────────
+
+  private async startEventListener(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { events } = params as { events: string[] };
+    const data = await this.primitives.startListening({ events: events as StartListeningParams['events'] });
+    return { success: true, data };
+  }
+
+  private async stopEventListener(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { events } = params as { events?: string[] };
+    const data = await this.primitives.stopListening({ events });
+    return { success: true, data };
+  }
+
+  private async getPendingEvents(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { since } = params as { since?: number };
+    const events = since
+      ? this.eventQueue.filter(e => e.timestamp > since)
+      : [...this.eventQueue];
+    return { success: true, data: { events, count: events.length } };
   }
 }

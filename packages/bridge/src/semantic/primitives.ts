@@ -19,6 +19,17 @@ import type {
   GroupNodesParams,
   UngroupNodesParams,
   SwapComponentParams,
+  CreateVariableCollectionParams,
+  CreateVariableParams,
+  GetVariablesParams,
+  UpdateVariableValueParams,
+  DeleteVariableParams,
+  AddVariableModeParams,
+  AssignVariableToNodeParams,
+  CreateComponentSetParams,
+  CreateVariantInstanceParams,
+  SetVariantPropertiesParams,
+  StartListeningParams,
 } from '@figma-bridge/shared';
 
 export class Primitives {
@@ -101,5 +112,67 @@ export class Primitives {
   async exportNode(params: ExportNodeParams): Promise<{ base64: string; format: string; width: number; height: number }> {
     const result = await this.execute('exportNode', params as unknown as Record<string, unknown>);
     return result as { base64: string; format: string; width: number; height: number };
+  }
+
+  // ─── Variables ─────────────────────────────────────────────
+
+  async createVariableCollection(params: CreateVariableCollectionParams): Promise<unknown> {
+    return this.execute('createVariableCollection', params as unknown as Record<string, unknown>);
+  }
+
+  async getVariableCollections(): Promise<unknown> {
+    return this.execute('getVariableCollections', {});
+  }
+
+  async createVariable(params: CreateVariableParams): Promise<unknown> {
+    return this.execute('createVariable', params as unknown as Record<string, unknown>);
+  }
+
+  async getVariables(params: GetVariablesParams = {}): Promise<unknown> {
+    return this.execute('getVariables', params as unknown as Record<string, unknown>);
+  }
+
+  async updateVariableValue(params: UpdateVariableValueParams): Promise<unknown> {
+    return this.execute('updateVariableValue', params as unknown as Record<string, unknown>);
+  }
+
+  async deleteVariable(params: DeleteVariableParams): Promise<void> {
+    await this.execute('deleteVariable', params as unknown as Record<string, unknown>);
+  }
+
+  async addVariableMode(params: AddVariableModeParams): Promise<unknown> {
+    return this.execute('addVariableMode', params as unknown as Record<string, unknown>);
+  }
+
+  async assignVariableToNode(params: AssignVariableToNodeParams): Promise<unknown> {
+    return this.execute('assignVariableToNode', params as unknown as Record<string, unknown>);
+  }
+
+  // ─── Component Variants ───────────────────────────────────
+
+  async createComponentSet(params: CreateComponentSetParams): Promise<unknown> {
+    return this.execute('createComponentSet', params as unknown as Record<string, unknown>);
+  }
+
+  async getComponentSets(): Promise<unknown> {
+    return this.execute('getComponentSets', {});
+  }
+
+  async createVariantInstance(params: CreateVariantInstanceParams): Promise<unknown> {
+    return this.execute('createVariantInstance', params as unknown as Record<string, unknown>);
+  }
+
+  async setVariantProperties(params: SetVariantPropertiesParams): Promise<unknown> {
+    return this.execute('setVariantProperties', params as unknown as Record<string, unknown>);
+  }
+
+  // ─── Event Listeners ──────────────────────────────────────
+
+  async startListening(params: StartListeningParams): Promise<unknown> {
+    return this.execute('startListening', params as unknown as Record<string, unknown>);
+  }
+
+  async stopListening(params: { events?: string[] }): Promise<unknown> {
+    return this.execute('stopListening', params as unknown as Record<string, unknown>);
   }
 }

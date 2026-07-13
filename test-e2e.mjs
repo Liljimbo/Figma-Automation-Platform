@@ -78,10 +78,10 @@ async function runTest() {
   const toolMatches = serverOutput.match(/"name":"[^"]+"/g);
   const toolCount = toolMatches ? toolMatches.length : 0;
 
-  if (toolCount >= 33) {
+  if (toolCount >= 47) {
     log('T3: 工具注册数量', 'PASS', `注册了 ${toolCount} 个工具`);
   } else {
-    log('T3: 工具注册数量', 'FAIL', `期望 33+，实际 ${toolCount}`);
+    log('T3: 工具注册数量', 'FAIL', `期望 47+，实际 ${toolCount}`);
   }
 
   // Test 4: 核心工具存在性检查
@@ -90,7 +90,11 @@ async function runTest() {
     'get_document_info', 'get_node_tree', 'create_container', 'create_text',
     'create_button', 'create_card', 'create_sidebar',
     'find_nodes', 'get_semantic_map',
-    'update_node', 'delete_node', 'batch_execute'
+    'update_node', 'delete_node', 'batch_execute',
+    // Phase 3 tools
+    'create_variable_collection', 'create_variable', 'get_variables',
+    'create_component_set', 'create_variant_instance',
+    'start_event_listener', 'get_pending_events',
   ];
   const missing = requiredTools.filter(t => !serverOutput.includes(`"name":"${t}"`));
   if (missing.length === 0) {

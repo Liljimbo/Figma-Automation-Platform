@@ -155,6 +155,14 @@
             payload: msg.payload,
           }));
         }
+      } else if (msg.type === 'event') {
+        // 将事件通过 WebSocket 发送给 Bridge
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'event',
+            payload: msg.payload,
+          }));
+        }
       } else if (msg.type === 'init') {
         log('Plugin initialized, connecting to Bridge...');
         connect();

@@ -23,7 +23,25 @@ export type PrimitiveCommandType =
   | 'duplicateNode'
   | 'groupNodes'
   | 'ungroupNodes'
-  | 'swapComponent';
+  | 'swapComponent'
+  // Variables
+  | 'createVariableCollection'
+  | 'getVariableCollections'
+  | 'createVariable'
+  | 'getVariables'
+  | 'updateVariableValue'
+  | 'deleteVariable'
+  | 'addVariableMode'
+  | 'assignVariableToNode'
+  // Component Variants
+  | 'createComponentSet'
+  | 'getComponentSets'
+  | 'createVariantInstance'
+  | 'setVariantProperties'
+  // Event Listeners
+  | 'startListening'
+  | 'stopListening'
+  | 'getPendingEvents';
 
 /** 发送给 Plugin 的原始命令 */
 export interface PrimitiveCommand {
@@ -186,6 +204,91 @@ export interface UngroupNodesParams {
 export interface SwapComponentParams {
   nodeId: string;
   componentName: string;
+}
+
+// ─── Variables Commands ────────────────────────────────────
+
+export type VariableResolvedType = 'BOOLEAN' | 'COLOR' | 'FLOAT' | 'STRING';
+
+export interface CreateVariableCollectionParams {
+  name: string;
+  modes: string[];
+}
+
+export interface CreateVariableParams {
+  name: string;
+  collectionId: string;
+  resolvedType: VariableResolvedType;
+  valuesByMode: Record<string, unknown>;
+}
+
+export interface GetVariablesParams {
+  type?: VariableResolvedType;
+  collectionId?: string;
+}
+
+export interface UpdateVariableValueParams {
+  variableId: string;
+  modeId: string;
+  value: unknown;
+}
+
+export interface DeleteVariableParams {
+  variableId: string;
+}
+
+export interface AddVariableModeParams {
+  collectionId: string;
+  modeName: string;
+}
+
+export interface AssignVariableToNodeParams {
+  variableId: string;
+  nodeId: string;
+  property: string;
+}
+
+// ─── Component Variants Commands ──────────────────────────
+
+export interface VariantDefinition {
+  name: string;
+  properties: Record<string, string>;
+  width?: number;
+  height?: number;
+  fills?: CreateNodeParams['fills'];
+}
+
+export interface CreateComponentSetParams {
+  name: string;
+  variants: VariantDefinition[];
+  parentId?: string;
+}
+
+export interface CreateVariantInstanceParams {
+  componentSetId: string;
+  variantProperties: Record<string, string>;
+  parentId?: string;
+}
+
+export interface SetVariantPropertiesParams {
+  componentId: string;
+  properties: Record<string, string>;
+}
+
+// ─── Event Listener Commands ─────────────────────────────
+
+export interface StartListeningParams {
+  events: Array<'selectionchange' | 'documentchange' | 'currentpagechange'>;
+}
+
+export interface GetPendingEventsParams {
+  since?: number;
+}
+
+export interface PluginEvent {
+  event: string;
+  timestamp: number;
+  data?: unknown;
 }
 
 // ─── Semantic Layer Types ──────────────────────────────────

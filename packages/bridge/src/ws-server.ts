@@ -12,6 +12,7 @@ export class WSServer {
   private pluginSocket: WebSocket | null = null;
   private commandRouter: CommandRouter;
   private onStatusChange?: (status: 'connected' | 'disconnected') => void;
+  private onEventCallback?: (event: { event: string; timestamp: number; data?: unknown }) => void;
 
   constructor(commandRouter: CommandRouter) {
     this.commandRouter = commandRouter;
@@ -20,6 +21,11 @@ export class WSServer {
   /** 设置状态变化回调 */
   onStatus(callback: (status: 'connected' | 'disconnected') => void) {
     this.onStatusChange = callback;
+  }
+
+  /** 设置事件回调 */
+  onEvent(callback: (event: { event: string; timestamp: number; data?: unknown }) => void) {
+    this.onEventCallback = callback;
   }
 
   /** 启动 WebSocket 服务 */
@@ -54,6 +60,8 @@ export class WSServer {
             const msg = JSON.parse(data.toString());
             if (msg.type === 'result') {
               this.commandRouter.handleResult(msg.payload);
+            } else if (msg.type === 'event') {
+              this.onEventCallback?.(msg.payload);
             }
           } catch (err) {
             console.error('[WS] Message parse error:', err);

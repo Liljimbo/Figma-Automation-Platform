@@ -8,13 +8,14 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { SemanticTools, TOOL_DEFINITIONS } from './semantic/tools.js';
 import type { PrimitiveExecutor } from './semantic/types.js';
 import { CommandRouter } from './command-router.js';
+import type { PluginEvent } from '@figma-bridge/shared';
 
 export class BridgeMCPServer {
   private mcp: McpServer;
   private semanticTools: SemanticTools;
   private transport: StdioServerTransport;
 
-  constructor(commandRouter: CommandRouter) {
+  constructor(commandRouter: CommandRouter, eventQueue: PluginEvent[] = []) {
     // 创建 Primitive Executor —— 通过 CommandRouter 发送命令到 Plugin
     const executor: PrimitiveExecutor = async (cmd, params) => {
       const result = await commandRouter.sendCommand(cmd, params);
@@ -24,7 +25,7 @@ export class BridgeMCPServer {
       return result.data;
     };
 
-    this.semanticTools = new SemanticTools(executor);
+    this.semanticTools = new SemanticTools(executor, eventQueue);
 
     // 创建 MCP Server
     this.mcp = new McpServer({

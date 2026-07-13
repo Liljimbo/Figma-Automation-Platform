@@ -6,6 +6,11 @@
 import { CommandRouter } from './command-router.js';
 import { WSServer } from './ws-server.js';
 import { BridgeMCPServer } from './mcp-server.js';
+import type { PluginEvent } from '@figma-bridge/shared';
+
+/** 内存事件队列 */
+const eventQueue: PluginEvent[] = [];
+const MAX_EVENTS = 1000;
 
 async function main() {
   console.log('=== Figma Bridge Server v0.1.0 ===');
@@ -25,6 +30,14 @@ async function main() {
     }
   });
 
+  // 事件队列：Plugin 推送的事件存储在这里
+  wsServer.onEvent((event: PluginEvent) => {
+    eventQueue.push(event);
+    if (eventQueue.length > MAX_EVENTS) {
+      eventQueue.splice(0, eventQueue.length - MAX_EVENTS);
+    }
+  });
+
   try {
     await wsServer.start();
   } catch (err) {
@@ -33,7 +46,7 @@ async function main() {
   }
 
   // 3. 创建并启动 MCP Server
-  const mcpServer = new BridgeMCPServer(commandRouter);
+  const mcpServer = new BridgeMCPServer(commandRouter, eventQueue);
 
   try {
     await mcpServer.start();
