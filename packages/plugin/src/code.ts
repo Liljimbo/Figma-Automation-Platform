@@ -106,11 +106,7 @@ registerHandler('setProperties', async (params) => {
   const sceneNode = node as SceneNode;
 
   for (const [key, value] of Object.entries(properties)) {
-    try {
-      (sceneNode as unknown as Record<string, unknown>)[key] = value;
-    } catch {
-      // 忽略只读属性或不支持的属性
-    }
+    (sceneNode as unknown as Record<string, unknown>)[key] = value;
   }
 
   return { updated: true, nodeId };

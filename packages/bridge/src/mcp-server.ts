@@ -24,6 +24,8 @@ function jsonSchemaToZodShape(
       field = z.boolean();
     } else if (prop.type === 'array') {
       field = z.array(z.string());
+    } else if (prop.type === 'object') {
+      field = z.record(z.string(), z.unknown());
     } else if (prop.enum && prop.enum.length >= 2) {
       field = z.enum(prop.enum as [string, ...string[]]);
     } else {
@@ -80,7 +82,7 @@ export class BridgeMCPServer {
             content: [
               {
                 type: 'text' as const,
-                text: JSON.stringify(result.data, null, 2),
+                text: JSON.stringify(result.data ?? null, null, 2),
               },
             ],
           };
