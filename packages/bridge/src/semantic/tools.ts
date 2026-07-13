@@ -9,9 +9,10 @@
 
 import type { SemanticToolDefinition, SemanticResult, PrimitiveExecutor } from './types.js';
 import type { SemanticEntry } from './types.js';
-import type { PluginEvent, StartListeningParams } from '@figma-bridge/shared';
+import type { PluginEvent, StartListeningParams, NodeSnapshot, NodeDiff } from '@figma-bridge/shared';
 import { SemanticRegistry } from './registry.js';
 import { Primitives } from './primitives.js';
+import { TemplateRegistry } from './templates.js';
 
 // ─── Utility ────────────────────────────────────────────────
 
@@ -877,6 +878,84 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
       },
     },
   },
+
+  // ── Diff Engine 工具 ──
+  {
+    name: 'diff_snapshot',
+    description: '获取节点树的快照，用于后续对比和增量更新',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        nodeId: { type: 'string', description: '根节点 ID，不传则使用当前页面' },
+        depth: { type: 'number', description: '序列化深度，默认 10' },
+      },
+    },
+  },
+  {
+    name: 'diff_apply',
+    description: '对比当前状态与目标快照，只发送变化的属性（增量更新）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        targetSnapshot: {
+          type: 'object',
+          description: '目标快照（由 diff_snapshot 生成）',
+        },
+        parentId: { type: 'string', description: '父节点 ID' },
+      },
+      required: ['targetSnapshot'],
+    },
+  },
+
+  // ── Template 工具 ──
+  {
+    name: 'create_from_template',
+    description: '从预定义模板创建设计，支持参数化',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        templateName: { type: 'string', description: '模板名称' },
+        parameters: { type: 'object', description: '模板参数' },
+        parentId: { type: 'string', description: '父节点 ID' },
+      },
+      required: ['templateName'],
+    },
+  },
+  {
+    name: 'list_templates',
+    description: '列出所有可用的设计模板',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'save_as_template',
+    description: '将当前操作序列保存为可复用模板',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '模板名称' },
+        description: { type: 'string', description: '模板描述' },
+        tools: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              tool: { type: 'string' },
+              params: { type: 'object' },
+            },
+          },
+          description: '工具调用序列',
+        },
+        parameters: {
+          type: 'object',
+          description: '参数定义（支持 ${paramName} 占位符）',
+        },
+      },
+      required: ['name', 'description', 'tools'],
+    },
+  },
 ];
 
 // ─── Tool Implementations ─────────────────────────────────
@@ -885,11 +964,13 @@ export class SemanticTools {
   private primitives: Primitives;
   private registry: SemanticRegistry;
   private eventQueue: PluginEvent[];
+  private templateRegistry: TemplateRegistry;
 
   constructor(executor: PrimitiveExecutor, eventQueue: PluginEvent[] = []) {
     this.primitives = new Primitives(executor);
     this.registry = new SemanticRegistry();
     this.eventQueue = eventQueue;
+    this.templateRegistry = new TemplateRegistry();
   }
 
   getRegistry(): SemanticRegistry {
@@ -1011,6 +1092,20 @@ export class SemanticTools {
           return await this.stopEventListener(params);
         case 'get_pending_events':
           return await this.getPendingEvents(params);
+
+        // ── Diff Engine 工具 ──
+        case 'diff_snapshot':
+          return await this.diffSnapshot(params);
+        case 'diff_apply':
+          return await this.diffApply(params);
+
+        // ── Template 工具 ──
+        case 'create_from_template':
+          return await this.createFromTemplate(params);
+        case 'list_templates':
+          return await this.listTemplates();
+        case 'save_as_template':
+          return await this.saveAsTemplate(params);
 
         default:
           return { success: false, error: `Unknown tool: ${toolName}` };
@@ -2568,5 +2663,181 @@ export class SemanticTools {
       ? this.eventQueue.filter(e => e.timestamp > since)
       : [...this.eventQueue];
     return { success: true, data: { events, count: events.length } };
+  }
+
+  // ─── Diff Engine 工具实现 ─────────────────────────────────
+
+  private async diffSnapshot(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { nodeId, depth } = params as { nodeId?: string; depth?: number };
+    const snapshot = await this.primitives.snapshotNode({ nodeId, depth });
+    return { success: true, data: snapshot };
+  }
+
+  private async diffApply(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { targetSnapshot, parentId } = params as {
+      targetSnapshot: NodeSnapshot;
+      parentId?: string;
+    };
+
+    if (!targetSnapshot) {
+      return { success: false, error: 'targetSnapshot is required' };
+    }
+
+    // 获取当前状态快照
+    const currentSnapshot = await this.primitives.snapshotNode({
+      nodeId: parentId,
+      depth: 10,
+    }) as NodeSnapshot;
+
+    // 计算 diff
+    const diffs = this.computeDiff(currentSnapshot, targetSnapshot);
+
+    // 应用变更
+    const applied: string[] = [];
+    for (const diff of diffs) {
+      try {
+        if (diff.type === 'modify' && diff.properties) {
+          await this.primitives.setProperties({
+            nodeId: diff.id,
+            properties: diff.properties,
+          });
+          applied.push(`modify:${diff.id}`);
+        } else if (diff.type === 'add' && diff.properties) {
+          await this.primitives.createNode({
+            type: (diff.properties.type as NodeSnapshot['type'] || 'FRAME') as 'FRAME' | 'RECTANGLE' | 'ELLIPSE' | 'LINE' | 'COMPONENT' | 'INSTANCE',
+            name: diff.name || 'node',
+            parentId: diff.parentId || parentId,
+            ...diff.properties,
+          } as any);
+          applied.push(`add:${diff.name}`);
+        } else if (diff.type === 'remove') {
+          await this.primitives.deleteNode({ nodeId: diff.id });
+          applied.push(`remove:${diff.id}`);
+        }
+      } catch (err) {
+        // 单个变更失败不中断整个应用
+      }
+    }
+
+    return {
+      success: true,
+      data: { diffs: diffs.length, applied: applied.length, changes: applied },
+    };
+  }
+
+  /** 计算两个快照之间的差异 */
+  private computeDiff(current: NodeSnapshot, target: NodeSnapshot): NodeDiff[] {
+    const diffs: NodeDiff[] = [];
+    this.diffNode(current, target, diffs);
+    return diffs;
+  }
+
+  private diffNode(current: NodeSnapshot, target: NodeSnapshot, diffs: NodeDiff[]): void {
+    // 对比属性
+    const changedProps: Record<string, unknown> = {};
+    let hasChanges = false;
+
+    for (const [key, value] of Object.entries(target.properties)) {
+      const currentVal = current.properties[key];
+      if (JSON.stringify(currentVal) !== JSON.stringify(value)) {
+        changedProps[key] = value;
+        hasChanges = true;
+      }
+    }
+
+    if (hasChanges) {
+      diffs.push({
+        id: current.id,
+        type: 'modify',
+        name: target.name,
+        properties: changedProps,
+      });
+    }
+
+    // 对比子节点
+    const currentChildren = current.children || [];
+    const targetChildren = target.children || [];
+
+    // 找出需要新增的子节点
+    const currentIds = new Set(currentChildren.map(c => c.id));
+    const targetIds = new Set(targetChildren.map(c => c.id));
+
+    for (const tc of targetChildren) {
+      if (!currentIds.has(tc.id)) {
+        diffs.push({
+          id: tc.id,
+          type: 'add',
+          name: tc.name,
+          properties: tc.properties,
+          parentId: current.id,
+        });
+      }
+    }
+
+    // 找出需要删除的子节点
+    for (const cc of currentChildren) {
+      if (!targetIds.has(cc.id)) {
+        diffs.push({
+          id: cc.id,
+          type: 'remove',
+          name: cc.name,
+        });
+      }
+    }
+
+    // 递归对比共有子节点
+    for (const tc of targetChildren) {
+      const cc = currentChildren.find(c => c.id === tc.id);
+      if (cc) {
+        this.diffNode(cc, tc, diffs);
+      }
+    }
+  }
+
+  // ─── Template 工具实现 ───────────────────────────────────
+
+  private async createFromTemplate(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { templateName, parameters, parentId } = params as {
+      templateName: string;
+      parameters?: Record<string, unknown>;
+      parentId?: string;
+    };
+
+    const template = this.templateRegistry.get(templateName);
+    if (!template) {
+      return { success: false, error: `Template not found: ${templateName}` };
+    }
+
+    const commands = this.templateRegistry.instantiate(template, parameters || {}, parentId);
+    const results: Array<{ tool: string; result: SemanticResult }> = [];
+
+    for (const cmd of commands) {
+      const result = await this.execute(cmd.tool, cmd.params);
+      results.push({ tool: cmd.tool, result });
+      if (!result.success) break;
+    }
+
+    const allSuccess = results.every(r => r.result.success);
+    return {
+      success: allSuccess,
+      data: { template: templateName, results, executed: results.length },
+    };
+  }
+
+  private async listTemplates(): Promise<SemanticResult> {
+    const templates = this.templateRegistry.list();
+    return { success: true, data: { templates, count: templates.length } };
+  }
+
+  private async saveAsTemplate(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { name, description, tools, parameters } = params as {
+      name: string;
+      description: string;
+      tools: Array<{ tool: string; params: Record<string, unknown> }>;
+      parameters?: Record<string, { type: string; description: string; default?: unknown }>;
+    };
+
+    this.templateRegistry.register({ name, description, tools, parameters });
+    return { success: true, data: { name, description, toolCount: tools.length } };
   }
 }

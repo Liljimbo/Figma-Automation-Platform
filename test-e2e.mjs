@@ -78,10 +78,10 @@ async function runTest() {
   const toolMatches = serverOutput.match(/"name":"[^"]+"/g);
   const toolCount = toolMatches ? toolMatches.length : 0;
 
-  if (toolCount >= 47) {
+  if (toolCount >= 52) {
     log('T3: 工具注册数量', 'PASS', `注册了 ${toolCount} 个工具`);
   } else {
-    log('T3: 工具注册数量', 'FAIL', `期望 47+，实际 ${toolCount}`);
+    log('T3: 工具注册数量', 'FAIL', `期望 52+，实际 ${toolCount}`);
   }
 
   // Test 4: 核心工具存在性检查

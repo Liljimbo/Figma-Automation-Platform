@@ -10,6 +10,7 @@ import { modifyHandlers } from './commands/modify.js';
 import { variablesHandlers } from './commands/variables.js';
 import { variantsHandlers } from './commands/variants.js';
 import { eventsHandlers } from './commands/events.js';
+import { diffHandlers } from './commands/diff.js';
 
 // ─── Command Handlers ──────────────────────────────────────
 
@@ -221,6 +222,9 @@ registerHandler('setVariantProperties', variantsHandlers.setVariantProperties);
 // ─── Event Listeners (from commands/events.ts) ───────────
 registerHandler('startListening', eventsHandlers.startListening);
 registerHandler('stopListening', eventsHandlers.stopListening);
+
+// ─── Diff Engine (from commands/diff.ts) ─────────────────
+registerHandler('snapshotNode', diffHandlers.snapshotNode);
 
 // ─── Message Handler ───────────────────────────────────────
 

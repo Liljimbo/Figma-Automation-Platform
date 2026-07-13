@@ -81,6 +81,11 @@ export class BridgeMCPServer {
     return this.semanticTools.getRegistry();
   }
 
+  /** 获取 SemanticTools 实例（供 HTTP Server 使用） */
+  getSemanticTools() {
+    return this.semanticTools;
+  }
+
   /** 启动 MCP Server */
   async start() {
     await this.mcp.connect(this.transport);

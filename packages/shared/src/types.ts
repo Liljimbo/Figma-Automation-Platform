@@ -41,7 +41,11 @@ export type PrimitiveCommandType =
   // Event Listeners
   | 'startListening'
   | 'stopListening'
-  | 'getPendingEvents';
+  | 'getPendingEvents'
+  // Diff Engine
+  | 'snapshotNode'
+  // Templates
+  | 'createFromTemplate';
 
 /** 发送给 Plugin 的原始命令 */
 export interface PrimitiveCommand {
@@ -289,6 +293,44 @@ export interface PluginEvent {
   event: string;
   timestamp: number;
   data?: unknown;
+}
+
+// ─── Diff Engine ─────────────────────────────────────────
+
+export interface NodeSnapshot {
+  id: string;
+  name: string;
+  type: string;
+  properties: Record<string, unknown>;
+  children?: NodeSnapshot[];
+}
+
+export interface SnapshotNodeParams {
+  nodeId?: string;
+  depth?: number;
+}
+
+export interface NodeDiff {
+  id: string;
+  type: 'add' | 'remove' | 'modify';
+  name?: string;
+  properties?: Record<string, unknown>;
+  parentId?: string;
+}
+
+// ─── Template System ─────────────────────────────────────
+
+export interface TemplateDefinition {
+  name: string;
+  description: string;
+  tools: Array<{ tool: string; params: Record<string, unknown> }>;
+  parameters?: Record<string, { type: string; description: string; default?: unknown }>;
+}
+
+export interface CreateFromTemplateParams {
+  templateName: string;
+  parameters?: Record<string, unknown>;
+  parentId?: string;
 }
 
 // ─── Semantic Layer Types ──────────────────────────────────

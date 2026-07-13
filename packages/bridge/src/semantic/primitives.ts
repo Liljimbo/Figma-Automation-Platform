@@ -30,6 +30,7 @@ import type {
   CreateVariantInstanceParams,
   SetVariantPropertiesParams,
   StartListeningParams,
+  SnapshotNodeParams,
 } from '@figma-bridge/shared';
 
 export class Primitives {
@@ -174,5 +175,11 @@ export class Primitives {
 
   async stopListening(params: { events?: string[] }): Promise<unknown> {
     return this.execute('stopListening', params as unknown as Record<string, unknown>);
+  }
+
+  // ─── Diff Engine ──────────────────────────────────────────
+
+  async snapshotNode(params: SnapshotNodeParams = {}): Promise<unknown> {
+    return this.execute('snapshotNode', params as unknown as Record<string, unknown>);
   }
 }

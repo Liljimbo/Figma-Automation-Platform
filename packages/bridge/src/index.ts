@@ -6,6 +6,7 @@
 import { CommandRouter } from './command-router.js';
 import { WSServer } from './ws-server.js';
 import { BridgeMCPServer } from './mcp-server.js';
+import { HttpServer } from './http-server.js';
 import type { PluginEvent } from '@figma-bridge/shared';
 
 /** 内存事件队列 */
@@ -60,7 +61,19 @@ async function main() {
     process.exit(1);
   }
 
-  // 4. 优雅退出
+  // 4. 启动 HTTP REST API Server
+  const httpServer = new HttpServer(mcpServer.getSemanticTools());
+
+  try {
+    await httpServer.start();
+    console.log('[Bridge] ✅ REST API started (http://localhost:37850)');
+    console.log('');
+  } catch (err) {
+    console.error('[Bridge] Failed to start HTTP server:', err);
+    // HTTP 失败不阻塞，MCP 仍可工作
+  }
+
+  // 5. 优雅退出
   process.on('SIGINT', () => {
     console.log('\n[Bridge] Shutting down...');
     wsServer.close();

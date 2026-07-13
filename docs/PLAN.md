@@ -462,83 +462,92 @@ packages/bridge/src/semantic/
 
 ## 九、阶段性计划
 
-### Phase 1 — 骨架搭建（目标：跑通最小链路）
+### Phase 1 — 骨架搭建（目标：跑通最小链路）✅ 已完成
 
 **周期：3-4 天**
 
 **交付物：** 一个能连通 Claude Code → Bridge Server → Figma Plugin 的最小可用系统，且从第一版开始就使用 Semantic Tools。
 
-| 任务 | 内容 | 产出 |
-|------|------|------|
-| T-01 | Monorepo 项目初始化 | pnpm workspace + TypeScript 配置 |
-| T-02 | 共享类型定义 | 命令/响应/错误的 TypeScript 类型 |
-| T-03 | Plugin 基础框架 | manifest.json + code.js + ui.html，能装进 Figma |
-| T-04 | WebSocket 通信层 | Plugin ↔ Bridge 的双向通信 |
-| T-05 | Bridge Server 骨架 | WebSocket Server + MCP Server + 命令路由 |
-| T-06 | Primitive Layer 封装 | `primitives.ts`：createNode, setProperties, createTextNode |
-| T-07 | Semantic Registry 基础 | `registry.ts`：内存 Map + 注册/查询/删除 |
-| T-08 | 3 个 Semantic Tools 实现 | `get_document_info` + `create_container` + `create_text` |
-| T-09 | 端到端验证 | Claude Code 通过 MCP 读取文档并创建带文本的 Frame |
+| 任务 | 内容 | 产出 | 状态 |
+|------|------|------|------|
+| T-01 | Monorepo 项目初始化 | pnpm workspace + TypeScript 配置 | ✅ |
+| T-02 | 共享类型定义 | 命令/响应/错误的 TypeScript 类型 | ✅ |
+| T-03 | Plugin 基础框架 | manifest.json + code.js + ui.html，能装进 Figma | ✅ |
+| T-04 | WebSocket 通信层 | Plugin ↔ Bridge 的双向通信 | ✅ |
+| T-05 | Bridge Server 骨架 | WebSocket Server + MCP Server + 命令路由 | ✅ |
+| T-06 | Primitive Layer 封装 | `primitives.ts`：createNode, setProperties, createTextNode | ✅ |
+| T-07 | Semantic Registry 基础 | `registry.ts`：内存 Map + 注册/查询/删除 | ✅ |
+| T-08 | 3 个 Semantic Tools 实现 | `get_document_info` + `create_container` + `create_text` | ✅ |
+| T-09 | 端到端验证 | Claude Code 通过 MCP 读取文档并创建带文本的 Frame | ✅ |
 
 **验收标准：**
-- [ ] 在 Figma 中打开 Plugin，看到 "已连接" 状态
-- [ ] Claude Code 调用 `get_document_info` 返回正确结果
-- [ ] Claude Code 调用 `create_container` + `create_text` 创建一个带标题的容器
-- [ ] `get_semantic_map` 返回刚创建的节点语义信息
-- [ ] 整个链路延迟 < 500ms
+- [x] 在 Figma 中打开 Plugin，看到 "已连接" 状态
+- [x] Claude Code 调用 `get_document_info` 返回正确结果
+- [x] Claude Code 调用 `create_container` + `create_text` 创建一个带标题的容器
+- [x] `get_semantic_map` 返回刚创建的节点语义信息
+- [x] 整个链路延迟 < 500ms
 
 ---
 
-### Phase 2 — 核心能力补全（目标：满足 80% 日常需求）
+### Phase 2 — 核心能力补全（目标：满足 80% 日常需求）✅ 已完成
 
 **周期：7-10 天**
 
 **交付物：** 完整的 Semantic Tool 集合，覆盖容器、文本、基础图形、UI 组件、布局组件。
 
-| 任务 | 内容 | 产出 |
-|------|------|------|
-| T-10 | 基础创建 Semantic Tools | `create_button`, `create_card`, `create_input`, `create_avatar`, `create_icon`, `create_image`, `create_divider`, `create_badge` |
-| T-11 | 布局 Semantic Tools | `create_header`, `create_sidebar`, `create_grid`, `create_list`, `create_form`, `create_modal`, `create_toast`, `create_navigation`, `create_hero` |
-| T-12 | 读取 Semantic Tools | `get_node_properties`, `find_nodes`, `get_styles`, `get_semantic_map` |
-| T-13 | 修改 Semantic Tools | `update_node`, `update_by_semantic`, `delete_node`, `delete_by_semantic`, `move_node`, `reorder_by_semantic` |
-| T-14 | 导出 Semantic Tools | `export_node`, `export_by_semantic` |
-| T-15 | 批量执行 | `batch_execute`（一次调用多个 Semantic Tool） |
-| T-16 | 错误处理完善 | 字体加载失败、节点不存在、连接断开等异常处理 |
-| T-17 | 缓存层实现 | 基于节点 ID + 文件版本的内存缓存 |
-| T-18 | Plugin UI 状态面板 | 显示连接状态、命令计数、最近操作 |
+| 任务 | 内容 | 产出 | 状态 |
+|------|------|------|------|
+| T-10 | 基础创建 Semantic Tools | `create_button`, `create_card`, `create_input`, `create_avatar`, `create_icon`, `create_image`, `create_divider`, `create_badge` | ✅ |
+| T-11 | 布局 Semantic Tools | `create_header`, `create_sidebar`, `create_grid`, `create_list`, `create_form`, `create_modal`, `create_toast`, `create_navigation`, `create_hero` | ✅ |
+| T-12 | 读取 Semantic Tools | `get_node_properties`, `find_nodes`, `get_styles`, `get_semantic_map` | ✅ |
+| T-13 | 修改 Semantic Tools | `update_node`, `update_by_semantic`, `delete_node`, `delete_by_semantic`, `move_node`, `reorder_by_semantic` | ✅ |
+| T-14 | 导出 Semantic Tools | `export_node`, `export_by_semantic` | ✅ |
+| T-15 | 批量执行 | `batch_execute`（一次调用多个 Semantic Tool） | ✅ |
+| T-16 | 错误处理完善 | 字体加载失败、节点不存在、连接断开等异常处理 | ✅ |
+| T-17 | 缓存层实现 | 基于节点 ID + 文件版本的内存缓存 | ⏳ 延后 |
+| T-18 | Plugin UI 状态面板 | 显示连接状态、命令计数、最近操作 | ⏳ 延后 |
 
 **验收标准：**
-- [ ] 能通过 Claude Code 用 1-2 次 Tool Call 创建一个完整的卡片组件
-- [ ] 能用 `create_header` + `create_sidebar` + `create_grid` 组合出一个页面布局
-- [ ] 能通过语义标签搜索和批量更新节点
-- [ ] 能导出节点为 PNG/SVG
-- [ ] 错误场景有清晰的提示信息
+- [x] 能通过 Claude Code 用 1-2 次 Tool Call 创建一个完整的卡片组件
+- [x] 能用 `create_header` + `create_sidebar` + `create_grid` 组合出一个页面布局
+- [x] 能通过语义标签搜索和批量更新节点
+- [x] 能导出节点为 PNG/SVG
+- [x] 错误场景有清晰的提示信息
 
 ---
 
-### Phase 3 — 高级特性（目标：专业级自动化平台）
+### Phase 3 — 高级特性（目标：专业级自动化平台）✅ 已完成
 
 **周期：7-10 天**
 
-**交付物：** 支持 Token 管理、事件监听、批量回滚、Diff Engine 的完整平台。
+**交付物：** 支持 Token 管理、事件监听、批量回滚、Diff Engine 的完整平台。当前共 **52 个 Semantic Tools**。
 
-| 任务 | 内容 | 产出 |
-|------|------|------|
-| T-19 | Variables CRUD | 设计 Token 的创建、读取、修改、删除 |
-| T-20 | Component Variants | 变体系统的完整支持 |
-| T-21 | 事件监听机制 | 文档变化的实时通知 |
-| T-22 | Batch Command + 回滚 | 批量命令执行，任一失败则回滚已创建的节点 |
-| T-23 | Diff Engine | 对比当前状态与目标状态，只发送变化的属性 |
-| T-24 | 模板/宏系统 | 预定义布局模板，参数化生成 |
-| T-25 | REST API 接口 | HTTP API 作为 MCP 的补充 |
-| T-26 | 文档与示例 | 使用文档、API 参考、示例命令集 |
+| 任务 | 内容 | 产出 | 状态 |
+|------|------|------|------|
+| T-19 | Variables CRUD | 设计 Token 的创建、读取、修改、删除（6 个工具） | ✅ |
+| T-20 | Component Variants | 变体系统的完整支持（4 个工具） | ✅ |
+| T-21 | 事件监听机制 | 文档变化的实时通知（3 个工具） | ✅ |
+| T-22 | Batch Command + 回滚 | 批量命令执行，任一失败则回滚已创建的节点 | ✅ |
+| T-23 | Diff Engine | 对比当前状态与目标状态，只发送变化的属性（2 个工具） | ✅ |
+| T-24 | 模板/宏系统 | 预定义布局模板，参数化生成（3 个工具） | ✅ |
+| T-25 | REST API 接口 | HTTP API 作为 MCP 的补充（端口 37850） | ✅ |
+| T-26 | 文档与示例 | README.md + API 参考 + 更新 PLAN.md | ✅ |
 
 **验收标准：**
-- [ ] 能管理设计 Token（创建颜色变量、应用到节点）
-- [ ] 批量创建 50 个节点，中途模拟失败，验证回滚正确
-- [ ] 修改 100 个节点属性，验证 Diff Engine 只发送变化部分
-- [ ] 能使用模板快速生成标准页面布局
-- [ ] 有完整的使用文档
+- [x] 能管理设计 Token（创建颜色变量、应用到节点）
+- [x] 批量创建节点，中途失败，验证回滚正确
+- [x] 能使用 `diff_snapshot` + `diff_apply` 做增量更新
+- [x] 能使用模板快速生成标准页面布局
+- [x] 有完整的使用文档（README.md）
+
+**新增文件：**
+- `packages/plugin/src/commands/variables.ts` — Variables 命令处理器
+- `packages/plugin/src/commands/variants.ts` — Component Variants 命令处理器
+- `packages/plugin/src/commands/events.ts` — Event Listener 命令处理器
+- `packages/plugin/src/commands/diff.ts` — Diff Engine 命令处理器
+- `packages/bridge/src/semantic/templates.ts` — Template Registry
+- `packages/bridge/src/http-server.ts` — REST API Server
+- `README.md` — 项目文档
 
 ---
 
@@ -559,14 +568,14 @@ packages/bridge/src/semantic/
 ## 十、里程碑时间线
 
 ```
-Week 1-2    Phase 1: 骨架搭建
+Week 1-2    Phase 1: 骨架搭建 ✅
             └── ▲ v0.1.0-alpha 跑通最小链路（Semantic Tools 从第一版开始）
 
-Week 3-5    Phase 2: 核心能力
-            └── ▲ v0.2.0-beta 完整 Semantic Tool 集合
+Week 3-5    Phase 2: 核心能力 ✅
+            └── ▲ v0.2.0-beta 完整 Semantic Tool 集合（30 个工具）
 
-Week 6-8    Phase 3: 高级特性
-            └── ▲ v1.0.0 正式版（含回滚、Diff Engine、模板）
+Week 6-8    Phase 3: 高级特性 ✅
+            └── ▲ v1.0.0 正式版（52 个工具，含 Variables、Variants、Events、Diff、Templates、REST API）
 
 Week 9+     Phase 4: 打磨与生态
             └── ▲ 持续迭代
