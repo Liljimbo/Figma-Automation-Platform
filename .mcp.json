@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "figma-bridge": {
+      "command": "node",
+      "args": ["packages/bridge/dist/index.js"],
+      "cwd": "C:\\Users\\a1808\\Desktop\\Figma-Automation-Platform"
+    }
+  }
+}

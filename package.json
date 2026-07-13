@@ -1,0 +1,14 @@
+{
+  "name": "figma-automation-platform",
+  "private": true,
+  "description": "Claude Code ↔ Figma 双向操控平台（基于 Plugin API + MCP）",
+  "scripts": {
+    "dev:plugin": "cd packages/plugin && pnpm dev",
+    "dev:bridge": "cd packages/bridge && pnpm dev",
+    "build": "pnpm -r build",
+    "clean": "pnpm -r clean"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
