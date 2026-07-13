@@ -1,7 +1,7 @@
 {
   "name": "@figma-forge/core",
   "version": "0.1.0",
-  "description": "Bridge Server for Figma Automation Platform — MCP + WebSocket + REST API",
+  "description": "Bridge Server for Figma Forge — MCP + WebSocket + REST API",
   "type": "module",
   "bin": {
     "figma-forge": "./dist/cli.js"

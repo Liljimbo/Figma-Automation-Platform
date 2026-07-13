@@ -1,7 +1,7 @@
 {
   "name": "@figma-forge/plugin",
   "version": "0.1.0",
-  "description": "Figma Plugin for Figma Automation Platform — executes commands via Plugin API",
+  "description": "Figma Plugin for Figma Forge — executes commands via Plugin API",
   "private": true,
   "type": "module",
   "scripts": {

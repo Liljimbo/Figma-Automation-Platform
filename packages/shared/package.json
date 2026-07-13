@@ -1,7 +1,7 @@
 {
   "name": "@figma-forge/shared",
   "version": "0.1.0",
-  "description": "Shared types for Figma Automation Platform",
+  "description": "Shared types for Figma Forge",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
