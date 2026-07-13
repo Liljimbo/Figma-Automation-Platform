@@ -1,12 +1,12 @@
 // ============================================================
-// @figma-bridge/bridge — 命令路由器
+// @figma-forge/core — 命令路由器
 // 管理命令的发送、超时、结果匹配
 // ============================================================
 
 import { WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import config from './config.js';
-import type { PrimitiveCommand, CommandResult } from '@figma-bridge/shared';
+import type { PrimitiveCommand, CommandResult } from '@figma-forge/shared';
 
 /** 待处理的命令回调 */
 interface PendingCommand {

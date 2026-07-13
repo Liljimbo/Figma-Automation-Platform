@@ -1,5 +1,5 @@
 // ============================================================
-// @figma-bridge/plugin — Figma Plugin 主线程
+// @figma-forge/plugin — Figma Plugin 主线程
 // 运行在 Figma 的沙箱环境中，直接访问 figma.* API
 // ============================================================
 
@@ -260,7 +260,7 @@ figma.ui.onmessage = async (msg: { id: string; cmd: string; params: Record<strin
 figma.showUI(__html__, {
   width: 400,
   height: 200,
-  title: 'Figma Bridge',
+  title: 'Figma Forge',
 });
 
 figma.ui.postMessage({ type: 'init', payload: { status: 'ready' } });

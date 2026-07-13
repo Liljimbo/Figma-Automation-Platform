@@ -1,5 +1,5 @@
 // ============================================================
-// @figma-bridge/plugin — 增强读取命令
+// @figma-forge/plugin — 增强读取命令
 // ============================================================
 
 type CommandHandler = (params: Record<string, unknown>) => Promise<unknown>;

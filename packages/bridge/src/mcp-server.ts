@@ -1,5 +1,5 @@
 // ============================================================
-// @figma-bridge/bridge — MCP Server
+// @figma-forge/core — MCP Server
 // 通过 stdio 暴露 Semantic Tools 给 Claude Code
 // ============================================================
 
@@ -8,7 +8,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { SemanticTools, TOOL_DEFINITIONS } from './semantic/tools.js';
 import type { PrimitiveExecutor } from './semantic/types.js';
 import { CommandRouter } from './command-router.js';
-import type { PluginEvent } from '@figma-bridge/shared';
+import type { PluginEvent } from '@figma-forge/shared';
 
 export class BridgeMCPServer {
   private mcp: McpServer;
@@ -29,7 +29,7 @@ export class BridgeMCPServer {
 
     // 创建 MCP Server
     this.mcp = new McpServer({
-      name: 'figma-bridge',
+      name: 'figma-forge',
       version: '0.1.0',
     });
 

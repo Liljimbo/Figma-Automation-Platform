@@ -1,5 +1,5 @@
 // ============================================================
-// @figma-bridge/plugin — Event Listener 命令处理器
+// @figma-forge/plugin — Event Listener 命令处理器
 // 监听 Figma 文档变化并通过 UI iframe 发送给 Bridge
 // ============================================================
 

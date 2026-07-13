@@ -1,5 +1,5 @@
 // ============================================================
-// @figma-bridge/bridge — HTTP REST API Server
+// @figma-forge/core — HTTP REST API Server
 // 作为 MCP 的补充，提供 HTTP 接口
 // ============================================================
 

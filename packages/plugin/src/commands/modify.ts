@@ -1,5 +1,5 @@
 // ============================================================
-// @figma-bridge/plugin — 增强修改命令
+// @figma-forge/plugin — 增强修改命令
 // ============================================================
 
 type CommandHandler = (params: Record<string, unknown>) => Promise<unknown>;

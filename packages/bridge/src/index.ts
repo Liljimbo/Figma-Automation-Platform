@@ -1,5 +1,5 @@
 // ============================================================
-// @figma-bridge/bridge — 入口
+// @figma-forge/core — 入口
 // 启动 WebSocket Server + MCP Server
 // ============================================================
 
@@ -7,14 +7,14 @@ import { CommandRouter } from './command-router.js';
 import { WSServer } from './ws-server.js';
 import { BridgeMCPServer } from './mcp-server.js';
 import { HttpServer } from './http-server.js';
-import type { PluginEvent } from '@figma-bridge/shared';
+import type { PluginEvent } from '@figma-forge/shared';
 
 /** 内存事件队列 */
 const eventQueue: PluginEvent[] = [];
 const MAX_EVENTS = 1000;
 
 async function main() {
-  console.log('=== Figma Bridge Server v0.1.0 ===');
+  console.log('=== Figma Forge Server v0.1.0 ===');
   console.log('');
 
   // 1. 创建命令路由器

@@ -1,8 +1,8 @@
 // ============================================================
-// @figma-bridge/bridge — 语义层类型定义
+// @figma-forge/core — 语义层类型定义
 // ============================================================
 
-import type { SemanticEntry, PrimitiveCommandType, SemanticToolDefinition, SemanticResult } from '@figma-bridge/shared';
+import type { SemanticEntry, PrimitiveCommandType, SemanticToolDefinition, SemanticResult } from '@figma-forge/shared';
 
 /** 语义注册表查询过滤器 */
 export interface RegistryFilter {

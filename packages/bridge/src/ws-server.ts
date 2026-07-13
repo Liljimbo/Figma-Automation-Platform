@@ -1,5 +1,5 @@
 // ============================================================
-// @figma-bridge/bridge — WebSocket Server
+// @figma-forge/core — WebSocket Server
 // 管理与 Figma Plugin 的连接
 // ============================================================
 

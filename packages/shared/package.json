@@ -1,5 +1,5 @@
 {
-  "name": "@figma-bridge/shared",
+  "name": "@figma-forge/shared",
   "version": "0.1.0",
   "description": "Shared types for Figma Automation Platform",
   "type": "module",

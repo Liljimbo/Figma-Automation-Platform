@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      font-size: 12px;
+      color: #333;
+      padding: 12px;
+      background: #fff;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: #f5f5f5;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ccc;
+      flex-shrink: 0;
+    }
+    .status-dot.connected { background: #1db954; }
+    .status-dot.error { background: #e74c3c; }
+    .status-text { color: #666; }
+    .log {
+      max-height: 120px;
+      overflow-y: auto;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-size: 11px;
+      color: #666;
+      line-height: 1.6;
+    }
+    .log-entry { padding: 2px 0; }
+    .log-entry.error { color: #e74c3c; }
+    .log-entry.success { color: #1db954; }
+    .log-entry.info { color: #3498db; }
+  </style>
+</head>
+<body>
+  <div class="status">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Connecting...</span>
+  </div>
+  <div class="log" id="log"></div>
+
+  <script>
+    const BRIDGE_PORT = 37849;
+    const RECONNECT_INTERVAL = 3000;
+    const MAX_RECONNECT_ATTEMPTS = 20;
+
+    let ws = null;
+    let reconnectAttempts = 0;
+    let reconnectTimer = null;
+
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const logEl = document.getElementById('log');
+
+    function log(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setStatus(status, text) {
+      statusDot.className = `status-dot ${status}`;
+      statusText.textContent = text;
+    }
+
+    function connect() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        return;
+      }
+
+      try {
+        ws = new WebSocket(`ws://localhost:${BRIDGE_PORT}`);
+      } catch (err) {
+        log(`Connection error: ${err.message}`, 'error');
+        scheduleReconnect();
+        return;
+      }
+
+      ws.onopen = () => {
+        reconnectAttempts = 0;
+        setStatus('connected', 'Connected to Bridge');
+        log('Connected to Bridge Server', 'success');
+
+        // 通知 Plugin 主线程
+        parent.postMessage({ pluginMessage: { type: 'ws-status', status: 'connected' } }, '*');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+
+          if (msg.type === 'command') {
+            // 转发命令到 Plugin 主线程
+            parent.postMessage({ pluginMessage: msg.payload }, '*');
+          }
+        } catch (err) {
+          log(`Message parse error: ${err.message}`, 'error');
+        }
+      };
+
+      ws.onclose = (event) => {
+        setStatus('error', 'Disconnected');
+        log(`Disconnected (code: ${event.code})`, 'error');
+
+        // 通知 Plugin 主线程
+        parent.postMessage({ pluginMessage: { type: 'ws-status', status: 'disconnected' } }, '*');
+
+        scheduleReconnect();
+      };
+
+      ws.onerror = () => {
+        setStatus('error', 'Connection error');
+      };
+    }
+
+    function scheduleReconnect() {
+      if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        log('Max reconnect attempts reached', 'error');
+        return;
+      }
+
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+
+      reconnectTimer = setTimeout(() => {
+        reconnectAttempts++;
+        log(`Reconnecting (attempt ${reconnectAttempts})...`);
+        connect();
+      }, RECONNECT_INTERVAL);
+    }
+
+    // 接收 Plugin 主线程的消息
+    window.onmessage = (event) => {
+      const msg = event.data.pluginMessage;
+      if (!msg) return;
+
+      if (msg.type === 'result') {
+        // 将执行结果通过 WebSocket 发回 Bridge
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'result',
+            payload: msg.payload,
+          }));
+        }
+      } else if (msg.type === 'event') {
+        // 将事件通过 WebSocket 发送给 Bridge
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'event',
+            payload: msg.payload,
+          }));
+        }
+      } else if (msg.type === 'init') {
+        log('Plugin initialized, connecting to Bridge...');
+        connect();
+      } else if (msg.type === 'ws-status') {
+        // 忽略自身发出的状态消息
+      }
+    };
+
+    // 启动
+    connect();
+  </script>
+</body>
+</html>

@@ -4,6 +4,7 @@
 // ============================================================
 
 import { build } from 'esbuild';
+import { copyFileSync, existsSync } from 'fs';
 
 await build({
   entryPoints: ['src/code.ts'],
@@ -21,6 +22,14 @@ await build({
   external: [],
 }).then(() => {
   console.log('✅ Plugin bundled: dist/code.js');
+
+  // 将 ui.html 复制到 plugin 根目录（供 Figma Import from manifest 使用）
+  const uiSrc = 'src/ui.html';
+  const uiDest = 'ui.html';
+  if (existsSync(uiSrc)) {
+    copyFileSync(uiSrc, uiDest);
+    console.log('✅ Copied ui.html to plugin root');
+  }
 }).catch((err) => {
   console.error('❌ Bundle failed:', err);
   process.exit(1);

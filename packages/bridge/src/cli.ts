@@ -1,6 +1,6 @@
 // ============================================================
-// @figma-bridge/bridge — CLI 入口
-// Usage: figma-bridge [setup] [--plugin-dir <path>] [--project-dir <path>]
+// @figma-forge/core — CLI 入口
+// Usage: figma-forge [setup] [--plugin-dir <path>] [--project-dir <path>]
 // ============================================================
 
 import { runSetup } from './setup.js';
@@ -10,20 +10,23 @@ const command = args[0];
 
 function printUsage(): void {
   console.log('');
-  console.log('Usage: figma-bridge [command] [options]');
+  console.log('Usage: figma-forge [command] [options]');
   console.log('');
   console.log('Commands:');
   console.log('  setup     Install Plugin files and configure MCP');
-  console.log('  (none)    Start the Bridge Server');
+  console.log('  (none)    Start the Bridge Server (for debugging only)');
   console.log('');
   console.log('Setup options:');
-  console.log('  --plugin-dir <path>   Where to install Plugin files (default: ~/.figma-bridge/plugin)');
+  console.log('  --plugin-dir <path>   Where to install Plugin files (default: ~/.figma-forge/plugin)');
   console.log('  --project-dir <path>  Where to write .mcp.json (default: current directory)');
   console.log('');
+  console.log('Note: In normal usage, Claude Code starts the Bridge automatically via MCP.');
+  console.log('      Only use "figma-forge" (no args) for debugging.');
+  console.log('');
   console.log('Examples:');
-  console.log('  figma-bridge setup');
-  console.log('  figma-bridge setup --plugin-dir ./my-plugin');
-  console.log('  figma-bridge setup --project-dir ~/my-project');
+  console.log('  figma-forge setup');
+  console.log('  figma-forge setup --plugin-dir ./my-plugin');
+  console.log('  figma-forge setup --project-dir ~/my-project');
   console.log('');
 }
 

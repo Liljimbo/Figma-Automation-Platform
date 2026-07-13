@@ -1,9 +1,9 @@
 // ============================================================
-// @figma-bridge/bridge — Template Registry
+// @figma-forge/core — Template Registry
 // 预定义设计模板的注册、查询、实例化
 // ============================================================
 
-import type { TemplateDefinition } from '@figma-bridge/shared';
+import type { TemplateDefinition } from '@figma-forge/shared';
 
 export class TemplateRegistry {
   private templates = new Map<string, TemplateDefinition>();

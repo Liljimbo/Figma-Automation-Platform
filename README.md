@@ -1,270 +1,209 @@
-# Figma Automation Platform
+# Figma Forge
 
-通过 Figma Plugin API + Bridge Server + MCP 协议，实现 Claude Code 对 Figma 的完整读写操控。
+> AI 驱动的 Figma 设计引擎 — 让 Claude Code 直接在 Figma 中创造设计稿。
 
-## 特性
+<p align="center">
+  <code>Claude Code</code> → <code>MCP</code> → <code>Bridge Server</code> → <code>WebSocket</code> → <code>Figma Plugin</code>
+</p>
 
-- **52 个 Semantic Tools** — AI 调用的高级语义工具，一次 Tool Call 完成复杂设计操作
-- **无调用限制** — 基于 Plugin API，不受 REST API 120 req/min 限流
-- **读写双向** — 完整的创建、修改、删除、导出能力
-- **毫秒级响应** — WebSocket 本地通信，无需网络往返
-- **语义注册表** — 通过语义标签定位和批量操作节点
-- **设计 Token** — Variables CRUD，支持多模式（light/dark）
-- **组件变体** — Component Variants 的创建和实例化
-- **事件监听** — 实时监听文档变化
-- **批量回滚** — 批量操作失败时自动回滚已创建的节点
-- **Diff Engine** — 增量更新，只发送变化的属性
-- **模板系统** — 预定义设计模板，参数化生成
-- **REST API** — HTTP 接口作为 MCP 的补充
+---
+
+## 为什么需要 Figma Forge
+
+| 痛点 | 现状 | Figma Forge |
+|------|------|-------------|
+| 官方 API 限流 | 120 req/min，复杂文件频繁 429 | Plugin API，**无调用限制** |
+| 只能读不能写 | REST API 单向 | 完整的创建 / 修改 / 删除 |
+| 每次调用走网络 | 高延迟、易超时 | WebSocket 本地通信，**毫秒级响应** |
+| 手动设计效率低 | 重复操作、无法批量 | AI 一次指令，**52 个语义工具自动编排** |
+
+## 架构
+
+```mermaid
+flowchart TD
+    A["Claude Code<br/>AI 理解意图, 调用语义工具"]
+    B["Figma Forge Bridge<br/>MCP Server · Semantic Layer · REST API"]
+    C["Figma Plugin<br/>在 Figma 沙箱中执行 Plugin API"]
+    D["Figma Desktop<br/>设计稿实时渲染"]
+
+    A -- "MCP (stdio)" --> B
+    B -- "WebSocket (localhost:37849)" --> C
+    C -- "Plugin API" --> D
+```
+
+**核心设计**：AI 只说"做什么"（`create_button({ variant: "primary" })`），Bridge 负责"怎么做"（自动编排 createNode → setLayout → createText）。一次 Tool Call 完成复杂设计操作。
+
+---
+
+## 特性一览
+
+<details>
+<summary><b>🎨 设计创建</b> — 19 个语义工具</summary>
+
+一次调用即可生成完整的 UI 组件，无需手动拼装底层 API。
+
+| 类别 | 工具 |
+|------|------|
+| 基础 | `create_container` · `create_text` |
+| UI 组件 | `create_button` · `create_card` · `create_input` · `create_avatar` · `create_icon` · `create_image` · `create_divider` · `create_badge` |
+| 布局 | `create_header` · `create_sidebar` · `create_grid` · `create_list` · `create_form` · `create_modal` · `create_toast` · `create_navigation` · `create_hero` |
+
+</details>
+
+<details>
+<summary><b>✏️ 设计修改</b> — 6 个语义工具</summary>
+
+支持按 ID 精确操作，也支持按语义标签批量操作。
+
+| 工具 | 说明 |
+|------|------|
+| `update_node` / `update_by_semantic` | 更新属性（单个 / 批量） |
+| `delete_node` / `delete_by_semantic` | 删除节点（单个 / 批量） |
+| `move_node` / `reorder_by_semantic` | 移动与重排 |
+
+</details>
+
+<details>
+<summary><b>🔍 设计读取</b> — 6 个语义工具</summary>
+
+| 工具 | 说明 |
+|------|------|
+| `get_document_info` | 文档名称、页面列表 |
+| `get_node_tree` | 递归获取节点层级 |
+| `get_node_properties` | 获取节点属性 |
+| `find_nodes` | 按名称 / 类型 / 语义搜索 |
+| `get_styles` | 样式信息 |
+| `get_semantic_map` | 语义注册表 |
+
+</details>
+
+<details>
+<summary><b>🏗️ 高级能力</b> — 设计 Token · 变体 · Diff · 模板</summary>
+
+| 能力 | 工具 | 说明 |
+|------|------|------|
+| Variables | `create_variable_collection` · `create_variable` · `get_variables` · `update_variable` · `delete_variable` | 设计 Token CRUD，支持 light/dark 多模式 |
+| Variants | `create_component_set` · `create_variant_instance` · `update_variant` · `get_component_sets` | 组件变体的创建与实例化 |
+| Diff Engine | `diff_snapshot` · `diff_apply` | 增量更新，只发送变化的属性 |
+| Templates | `create_from_template` · `list_templates` · `save_as_template` | 预定义模板 + 参数化生成 |
+| Batch | `batch_execute` | 批量执行，失败自动回滚 |
+| Events | `start_event_listener` · `stop_event_listener` · `get_pending_events` | 实时监听文档变化 |
+| Export | `export_node` · `export_by_semantic` | 导出为 PNG / JPG / SVG / PDF |
+
+</details>
+
+---
 
 ## 快速开始
 
-### 一键安装（推荐）
+### 前置条件
 
-```bash
-npx @figma-bridge/bridge setup
-```
-
-这会自动：
-- 复制 Plugin 文件到 `~/.figma-bridge/plugin/`
-- 在当前目录生成 `.mcp.json` 配置
-
-然后按提示在 Figma 中导入 Plugin 即可。
-
-### 手动安装
-
-- Node.js >= 18
-- pnpm
-- Figma Desktop（或 Figma Web）
+| 依赖 | 版本 | 说明 |
+|------|------|------|
+| **Figma Desktop** | — | ⚠️ Web 版不支持 Plugin API |
+| Node.js | ≥ 18 | 运行 Bridge Server |
+| Claude Code | — | CLI 或 VS Code 插件均可 |
 
 ### 安装
 
-```bash
-# 克隆项目
-git clone <repo-url>
-cd figma-automation-platform
-
-# 安装依赖
-pnpm install
-
-# 构建所有包
-pnpm build
-```
-
-### 配置 Figma Plugin
-
-1. 打开 Figma Desktop
-2. 进入 Plugins → Development → Import plugin from manifest
-3. 选择 `packages/plugin/manifest.json`
-4. 运行 Plugin，UI 应显示 "Connected to Bridge"
-
-### 配置 Claude Code MCP
-
-项目已包含 `.mcp.json`，Claude Code 会自动识别。MCP Server 通过 stdio 通信：
-
-```json
-{
-  "mcpServers": {
-    "figma-bridge": {
-      "command": "node",
-      "args": ["packages/bridge/dist/index.js"]
-    }
-  }
-}
-```
-
-### 启动 Bridge Server
+**方式一：从 npm（推荐）**
 
 ```bash
-pnpm dev:bridge
+npx @figma-forge/core setup
 ```
 
-Bridge Server 会同时启动：
-- WebSocket Server (端口 37849) — 与 Figma Plugin 通信
-- MCP Server (stdio) — 与 Claude Code 通信
-- REST API (端口 37850) — HTTP 接口
-
-## 项目结构
-
-```
-figma-automation-platform/
-├── packages/
-│   ├── shared/          # 共享类型定义
-│   ├── bridge/          # Bridge Server (MCP + WebSocket + HTTP)
-│   │   └── src/
-│   │       ├── index.ts           # 入口
-│   │       ├── mcp-server.ts      # MCP Server
-│   │       ├── ws-server.ts       # WebSocket Server
-│   │       ├── http-server.ts     # REST API Server
-│   │       ├── command-router.ts  # 命令路由
-│   │       └── semantic/          # 语义层
-│   │           ├── tools.ts       # 52 个 Semantic Tools
-│   │           ├── primitives.ts  # Primitive Commands 封装
-│   │           ├── registry.ts    # 语义注册表
-│   │           └── templates.ts   # 模板注册表
-│   └── plugin/          # Figma Plugin
-│       └── src/
-│           ├── code.ts            # 主线程
-│           ├── ui.html            # UI iframe
-│           └── commands/          # 命令处理器
-│               ├── read.ts        # 读取
-│               ├── create.ts      # 创建
-│               ├── modify.ts      # 修改
-│               ├── variables.ts   # Variables CRUD
-│               ├── variants.ts    # Component Variants
-│               ├── events.ts      # 事件监听
-│               └── diff.ts        # Diff Engine
-├── docs/
-│   └── PLAN.md          # 项目规划文档
-└── test-e2e.mjs         # 端到端测试
-```
-
-## Semantic Tools 参考
-
-### 读取类
-
-| Tool | 说明 |
-|------|------|
-| `get_document_info` | 获取文档名称、页面列表 |
-| `get_node_tree` | 递归获取节点层级 |
-| `get_node_properties` | 获取节点属性 |
-| `find_nodes` | 按名称/类型/语义搜索 |
-| `get_styles` | 获取样式信息 |
-| `get_semantic_map` | 获取语义注册表 |
-
-### 创建类 — 基础
-
-| Tool | 说明 |
-|------|------|
-| `create_container` | 容器（Frame + Auto Layout） |
-| `create_text` | 文本节点 |
-
-### 创建类 — UI 组件
-
-| Tool | 说明 |
-|------|------|
-| `create_button` | 按钮（primary/secondary/ghost） |
-| `create_card` | 卡片（default/outlined/elevated） |
-| `create_input` | 输入框 |
-| `create_avatar` | 头像 |
-| `create_icon` | 图标 |
-| `create_image` | 图片占位 |
-| `create_divider` | 分割线 |
-| `create_badge` | 徽标 |
-
-### 创建类 — 布局组件
-
-| Tool | 说明 |
-|------|------|
-| `create_header` | 页头 |
-| `create_sidebar` | 侧边栏 |
-| `create_grid` | 网格布局 |
-| `create_list` | 列表 |
-| `create_form` | 表单 |
-| `create_modal` | 弹窗 |
-| `create_toast` | 提示条 |
-| `create_navigation` | 导航栏 |
-| `create_hero` | Hero 区域 |
-
-### 修改类
-
-| Tool | 说明 |
-|------|------|
-| `update_node` | 更新节点属性 |
-| `update_by_semantic` | 按语义批量更新 |
-| `delete_node` | 删除节点 |
-| `delete_by_semantic` | 按语义批量删除 |
-| `move_node` | 移动/重排节点 |
-| `reorder_by_semantic` | 按语义重排 |
-
-### 导出类
-
-| Tool | 说明 |
-|------|------|
-| `export_node` | 导出节点为图片 |
-| `export_by_semantic` | 按语义批量导出 |
-
-### Variables（设计 Token）
-
-| Tool | 说明 |
-|------|------|
-| `create_variable_collection` | 创建变量集合（支持多模式） |
-| `get_variable_collections` | 获取所有变量集合 |
-| `create_variable` | 创建变量 |
-| `get_variables` | 获取变量列表 |
-| `update_variable` | 更新变量值 |
-| `delete_variable` | 删除变量 |
-
-### Component Variants
-
-| Tool | 说明 |
-|------|------|
-| `create_component_set` | 创建组件变体集 |
-| `get_component_sets` | 获取所有变体集 |
-| `create_variant_instance` | 通过变体属性创建实例 |
-| `update_variant` | 更新变体属性 |
-
-### Event Listeners
-
-| Tool | 说明 |
-|------|------|
-| `start_event_listener` | 开始监听文档事件 |
-| `stop_event_listener` | 停止监听 |
-| `get_pending_events` | 获取待处理事件 |
-
-### Diff Engine & Template
-
-| Tool | 说明 |
-|------|------|
-| `diff_snapshot` | 获取节点树快照 |
-| `diff_apply` | 增量更新（只发送变化部分） |
-| `create_from_template` | 从模板创建 |
-| `list_templates` | 列出可用模板 |
-| `save_as_template` | 保存为模板 |
-
-### 系统
-
-| Tool | 说明 |
-|------|------|
-| `batch_execute` | 批量执行（支持 rollback） |
-
-## REST API
-
-Bridge Server 同时提供 HTTP 接口：
+**方式二：从源码**
 
 ```bash
-# 健康检查
-curl http://localhost:37850/health
-
-# 调用工具
-curl -X POST http://localhost:37850/tools/get_document_info
-
-# 创建容器
-curl -X POST http://localhost:37850/tools/create_container \
-  -H "Content-Type: application/json" \
-  -d '{"name": "my-frame", "direction": "VERTICAL", "padding": 16}'
+git clone <repo-url> && cd figma-automation-platform
+pnpm install && pnpm build
 ```
+
+### 在 Figma 中导入 Plugin
+
+1. 打开 **Figma Desktop**（不是 Web 版）
+2. `Plugins` → `Development` → `Import plugin from manifest...`
+3. 选择文件：
+   - npm 安装 → `~/.figma-forge/plugin/manifest.json`
+   - 源码安装 → `packages/plugin/manifest.json`
+
+### 开始使用
+
+```bash
+# 在项目目录启动 Claude Code（它会自动启动 Bridge Server）
+cd <your-project>
+claude
+```
+
+在 Figma 中右键 → Plugins → Figma Forge，看到 **"Connected to Bridge"** 后即可对话：
+
+```
+你: 帮我创建一个登录页面
+Claude: (调用 create_form → create_button → create_input，Figma 中实时生成)
+```
+
+> **⚠️ 不要手动启动 Bridge Server。** Claude Code 通过 `.mcp.json` 自动管理其生命周期，手动启动会导致端口冲突。
+
+---
+
+## 工作区布局
+
+使用时需要三个窗口同时工作：
+
+```mermaid
+flowchart LR
+    subgraph T1["Terminal 1"]
+        A["Claude Code<br/>输入设计需求<br/>AI 调用 Semantic Tools"]
+    end
+    subgraph APP["App Window"]
+        B["Figma Desktop<br/>设计稿实时生成<br/>52 种组件可用"]
+    end
+    subgraph EMBED["Figma 内嵌"]
+        C["Plugin Panel<br/>显示连接状态<br/>执行日志"]
+    end
+
+    A <--> B
+    C -. "WebSocket" .-> B
+```
+
+Bridge Server 由 Claude Code 在后台自动启动，无需额外操作。
+
+---
 
 ## 开发
 
 ```bash
-# 构建所有包
-pnpm build
-
-# 运行端到端测试
-node test-e2e.mjs
-
-# 开发模式启动 Bridge
-pnpm dev:bridge
+pnpm build                  # 构建所有包
+pnpm dev:bridge             # 单独调试 Bridge（⚠️ 不要和 Claude Code 同时使用）
+node test-e2e.mjs           # 运行端到端测试
 ```
 
 ## 技术栈
 
 | 层级 | 技术 |
 |------|------|
-| Plugin | TypeScript + Figma Plugin API |
-| Bridge | TypeScript + Node.js |
-| MCP SDK | `@modelcontextprotocol/sdk` |
-| WebSocket | `ws` |
-| 构建 | esbuild + tsc |
-| 包管理 | pnpm (monorepo) |
+| Plugin | TypeScript · Figma Plugin API |
+| Bridge | TypeScript · Node.js · `@modelcontextprotocol/sdk` · WebSocket (`ws`) |
+| 构建 | esbuild + tsc · pnpm monorepo |
+
+## REST API
+
+Bridge Server 同时提供 HTTP 接口，可作为 MCP 的补充：
+
+```bash
+curl http://localhost:37850/health                                    # 健康检查
+curl -X POST http://localhost:37850/tools/get_document_info           # 获取文档信息
+curl -X POST http://localhost:37850/tools/create_container \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my-frame", "direction": "VERTICAL", "padding": 16}'  # 创建容器
+```
+
+---
+
+## 故障排查
+
+| 问题 | 排查步骤 |
+|------|---------|
+| **Plugin 显示 "Disconnected"** | ① 确认 Figma Desktop（非 Web） ② 确认 Claude Code 已启动 ③ 查看终端是否有 `[Bridge] ✅ Plugin connected` ④ 在 Plugin 面板等待自动重连 |
+| **MCP server failed to start** | ① `node --version` ≥ 18 ② 在 `.mcp.json` 所在目录启动 Claude Code ③ 确认 `pnpm build` 已执行 |
+| **端口冲突 EADDRINUSE** | 不要同时手动启动 Bridge 和 Claude Code。查找占用进程：`lsof -i :37849`（macOS/Linux）或 `netstat -ano \| findstr :37849`（Windows） |

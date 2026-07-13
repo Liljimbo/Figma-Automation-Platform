@@ -1,8 +1,8 @@
 {
-  "id": "figma-bridge-plugin",
-  "name": "Figma Bridge",
+  "id": "figma-forge-plugin",
+  "name": "Figma Forge",
   "api": "1.0.0",
   "main": "dist/code.js",
-  "ui": "src/ui.html",
+  "ui": "ui.html",
   "editorType": ["figma"]
 }

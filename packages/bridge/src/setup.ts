@@ -1,9 +1,9 @@
 // ============================================================
-// @figma-bridge/bridge — Setup 逻辑
+// @figma-forge/core — Setup 逻辑
 // 一键安装：复制 Plugin 文件 + 配置 MCP
 // ============================================================
 
-import { mkdirSync, copyFileSync, existsSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, copyFileSync, existsSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { homedir } from 'os';
 
@@ -13,18 +13,37 @@ export interface SetupOptions {
   projectDir?: string;
 }
 
-const DEFAULT_PLUGIN_DIR = join(homedir(), '.figma-bridge', 'plugin');
+const DEFAULT_PLUGIN_DIR = join(homedir(), '.figma-forge', 'plugin');
 
-/** 获取当前包的根目录（包含 plugin 构建产物） */
+/**
+ * 获取当前包的根目录（packages/bridge/）
+ * dist/setup.js → dist/ → packages/bridge/
+ */
 function getPackageDir(): string {
-  // 从 dist/setup.js 向上两级到 packages/bridge/
   return resolve(import.meta.dirname || __dirname, '..');
 }
 
-/** 获取 plugin 包目录 */
+/**
+ * 获取 plugin 构建产物目录
+ * 优先查找 npm 安装模式（bridge/dist/plugin/），回退到源码模式（packages/plugin/）
+ */
 function getPluginSourceDir(): string {
   const bridgeDir = getPackageDir();
-  return resolve(bridgeDir, '..', 'plugin');
+
+  // npm 安装模式：plugin 文件已嵌入 bridge/dist/plugin/
+  const npmPath = resolve(bridgeDir, 'dist', 'plugin');
+  if (existsSync(npmPath) && existsSync(join(npmPath, 'manifest.json'))) {
+    return npmPath;
+  }
+
+  // 源码开发模式：packages/plugin/
+  const sourcePath = resolve(bridgeDir, '..', 'plugin');
+  if (existsSync(sourcePath) && existsSync(join(sourcePath, 'manifest.json'))) {
+    return sourcePath;
+  }
+
+  // 都找不到时返回源码路径（后续会报错）
+  return sourcePath;
 }
 
 /** 复制 Plugin 文件到目标目录 */
@@ -37,44 +56,41 @@ export function copyPluginFiles(targetDir: string): void {
 
   mkdirSync(targetDir, { recursive: true });
 
-  // 需要复制的文件
-  const files = [
-    'manifest.json',
-    'dist/code.js',
+  // 需要复制的文件（仅 Figma Plugin 运行所需的最小文件集）
+  const files: [string, string][] = [
+    ['manifest.json', 'manifest.json'],
+    ['ui.html', 'ui.html'],
   ];
 
-  // ui.html 在 src/ 目录（esbuild 不处理它）
-  const uiSrc = join(pluginSrc, 'src', 'ui.html');
-  const uiDist = join(pluginSrc, 'dist', 'ui.html');
-  const uiSource = existsSync(uiDist) ? uiDist : uiSrc;
-
-  for (const file of files) {
-    const src = join(pluginSrc, file);
-    const dest = join(targetDir, file);
-    const destDir = join(dest, '..');
-    mkdirSync(destDir, { recursive: true });
+  for (const [srcName, destName] of files) {
+    const src = join(pluginSrc, srcName);
+    const dest = join(targetDir, destName);
 
     if (!existsSync(src)) {
-      console.warn(`  ⚠️  Skipping ${file} (not found, run pnpm build first)`);
+      console.warn(`  ⚠️  Skipping ${srcName} (not found in ${pluginSrc})`);
       continue;
     }
 
     copyFileSync(src, dest);
   }
 
-  // 复制 ui.html
-  if (existsSync(uiSource)) {
-    copyFileSync(uiSource, join(targetDir, 'ui.html'));
+  // 复制 dist/code.js（Plugin 主线程 bundle）
+  const codeJsSrc = join(pluginSrc, 'dist', 'code.js');
+  const codeJsDest = join(targetDir, 'dist', 'code.js');
+  if (existsSync(codeJsSrc)) {
+    mkdirSync(join(targetDir, 'dist'), { recursive: true });
+    copyFileSync(codeJsSrc, codeJsDest);
+    console.log(`  ✅ Plugin files copied to: ${targetDir}`);
+  } else {
+    console.warn(`  ⚠️  dist/code.js not found — run plugin build first`);
   }
-
-  console.log(`  ✅ Plugin files copied to: ${targetDir}`);
 }
 
 /** 配置 MCP */
 export function configureMcp(projectDir?: string): string {
   const mcpConfig = {
     mcpServers: {
-      'figma-bridge': {
+      'figma-forge': {
         command: 'node',
         args: [join(getPackageDir(), 'dist', 'index.js')],
       },
@@ -95,29 +111,30 @@ export function configureMcp(projectDir?: string): string {
 export function printInstructions(pluginDir: string, mcpConfigPath: string): void {
   console.log('');
   console.log('═══════════════════════════════════════════════════════');
-  console.log('  Figma Bridge — Setup Complete!');
+  console.log('  Figma Forge — Setup Complete!');
   console.log('═══════════════════════════════════════════════════════');
   console.log('');
   console.log('  Next steps:');
   console.log('');
   console.log('  1. Install the Figma Plugin:');
-  console.log('     - Open Figma Desktop');
+  console.log('     - Open Figma Desktop (not Web version)');
   console.log('     - Plugins → Development → Import plugin from manifest');
   console.log(`     - Select: ${join(pluginDir, 'manifest.json')}`);
   console.log('');
-  console.log('  2. Start the Bridge Server:');
-  console.log('     npx figma-bridge');
-  console.log('     (or: node packages/bridge/dist/index.js)');
+  console.log('  2. Start Claude Code in your project directory:');
+  console.log('     $ cd <your-project>');
+  console.log('     $ claude');
+  console.log('     Claude Code will auto-detect .mcp.json and start the Bridge.');
+  console.log('     ⚠️  Do NOT start the Bridge manually — Claude Code manages it.');
   console.log('');
-  console.log('  3. Run the Plugin in Figma:');
-  console.log('     - Right-click → Plugins → figma-bridge');
+  console.log('  3. In Figma, run the Plugin:');
+  console.log('     - Right-click → Plugins → Figma Forge');
   console.log('     - UI should show "Connected to Bridge"');
   console.log('');
-  console.log('  4. Use with Claude Code:');
-  console.log(`     MCP config: ${mcpConfigPath}`);
-  console.log('     Claude Code will auto-detect the .mcp.json file');
+  console.log('  4. Ask Claude Code to design:');
+  console.log('     "帮我创建一个登录页面"');
   console.log('');
-  console.log('  5. REST API (optional):');
+  console.log('  5. REST API (optional, requires Bridge running):');
   console.log('     curl http://localhost:37850/health');
   console.log('');
   console.log('═══════════════════════════════════════════════════════');
@@ -129,7 +146,7 @@ export function runSetup(options: SetupOptions = {}): void {
   const mcpConfigPath = options.mcpConfig || options.projectDir || process.cwd();
 
   console.log('');
-  console.log('🔧 Figma Bridge Setup');
+  console.log('🔧 Figma Forge Setup');
   console.log('');
 
   // 1. 检查 Node.js 版本

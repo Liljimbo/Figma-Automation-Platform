@@ -1,5 +1,5 @@
 // ============================================================
-// @figma-bridge/bridge — Semantic Tools 定义与实现
+// @figma-forge/core — Semantic Tools 定义与实现
 // AI 唯一看到的工具集
 //
 // 命名约定：
@@ -9,7 +9,7 @@
 
 import type { SemanticToolDefinition, SemanticResult, PrimitiveExecutor } from './types.js';
 import type { SemanticEntry } from './types.js';
-import type { PluginEvent, StartListeningParams, NodeSnapshot, NodeDiff } from '@figma-bridge/shared';
+import type { PluginEvent, StartListeningParams, NodeSnapshot, NodeDiff } from '@figma-forge/shared';
 import { SemanticRegistry } from './registry.js';
 import { Primitives } from './primitives.js';
 import { TemplateRegistry } from './templates.js';

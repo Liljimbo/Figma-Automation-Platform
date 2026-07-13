@@ -1,5 +1,5 @@
 // ============================================================
-// @figma-bridge/bridge — Primitive Commands 封装
+// @figma-forge/core — Primitive Commands 封装
 // Bridge 内部使用，不暴露给 AI
 // ============================================================
 
@@ -31,7 +31,7 @@ import type {
   SetVariantPropertiesParams,
   StartListeningParams,
   SnapshotNodeParams,
-} from '@figma-bridge/shared';
+} from '@figma-forge/shared';
 
 export class Primitives {
   private execute: PrimitiveExecutor;

@@ -62,7 +62,7 @@ async function runTest() {
   server.stdin.write(initMsg + '\n');
   await sleep(500);
 
-  if (serverOutput.includes('"serverInfo"') && serverOutput.includes('figma-bridge')) {
+  if (serverOutput.includes('"serverInfo"') && serverOutput.includes('figma-forge')) {
     log('T2: MCP Initialize 握手', 'PASS', '返回正确的 serverInfo');
   } else {
     log('T2: MCP Initialize 握手', 'FAIL', '未收到正确的初始化响应');
