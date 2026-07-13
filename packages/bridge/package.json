@@ -31,12 +31,13 @@
     "@figma-forge/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.12.0",
     "uuid": "^11.1.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.0",
-    "@types/node": "^22.0.0",
     "esbuild": "^0.28.1",
     "typescript": "^5.7.0"
   }
