@@ -1,16 +1,30 @@
 {
   "name": "@figma-bridge/bridge",
   "version": "0.1.0",
-  "private": true,
+  "description": "Bridge Server for Figma Automation Platform — MCP + WebSocket + REST API",
   "type": "module",
   "bin": {
-    "figma-bridge": "./dist/index.js"
+    "figma-bridge": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc",
+    "build:cli": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js \"--banner:js=#!/usr/bin/env node\" --external:ws --external:@modelcontextprotocol/sdk --external:uuid --external:@figma-bridge/shared",
     "dev": "node --watch --loader ts-node/esm src/index.ts",
     "start": "node dist/index.js",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "prepublishOnly": "pnpm build && pnpm build:cli"
   },
   "dependencies": {
     "@figma-bridge/shared": "workspace:*",
@@ -22,6 +36,7 @@
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.0",
     "@types/node": "^22.0.0",
+    "esbuild": "^0.28.1",
     "typescript": "^5.7.0"
   }
 }

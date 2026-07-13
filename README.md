@@ -19,7 +19,19 @@
 
 ## 快速开始
 
-### 前置条件
+### 一键安装（推荐）
+
+```bash
+npx @figma-bridge/bridge setup
+```
+
+这会自动：
+- 复制 Plugin 文件到 `~/.figma-bridge/plugin/`
+- 在当前目录生成 `.mcp.json` 配置
+
+然后按提示在 Figma 中导入 Plugin 即可。
+
+### 手动安装
 
 - Node.js >= 18
 - pnpm
