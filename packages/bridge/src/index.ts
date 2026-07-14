@@ -7,6 +7,7 @@ import { CommandRouter } from './command-router.js';
 import { WSServer } from './ws-server.js';
 import { BridgeMCPServer } from './mcp-server.js';
 import { HttpServer } from './http-server.js';
+import config from './config.js';
 import type { PluginEvent } from '@figma-forge/shared';
 
 /** 内存事件队列 */
@@ -62,11 +63,11 @@ async function main() {
   }
 
   // 4. 启动 HTTP REST API Server
-  const httpServer = new HttpServer(mcpServer.getSemanticTools());
+  const httpServer = new HttpServer(mcpServer.getSemanticTools(), config.httpPort);
 
   try {
     await httpServer.start();
-    console.log('[Bridge] ✅ REST API started (http://localhost:37850)');
+    console.log(`[Bridge] ✅ REST API started (http://localhost:${config.httpPort})`);
     console.log('');
   } catch (err) {
     console.error('[Bridge] Failed to start HTTP server:', err);

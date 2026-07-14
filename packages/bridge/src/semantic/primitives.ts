@@ -11,6 +11,7 @@ import type {
   SetPropertiesParams,
   SetLayoutParams,
   MoveNodeParams,
+  ResizeNodeParams,
   ExportNodeParams,
   GetNodeTreeParams,
   GetNodePropertiesParams,
@@ -31,6 +32,7 @@ import type {
   SetVariantPropertiesParams,
   StartListeningParams,
   SnapshotNodeParams,
+  CreateFromSvgParams,
 } from '@figma-forge/shared';
 
 export class Primitives {
@@ -96,8 +98,8 @@ export class Primitives {
     await this.execute('deleteNode', params as unknown as Record<string, unknown>);
   }
 
-  async setProperties(params: SetPropertiesParams): Promise<void> {
-    await this.execute('setProperties', params as unknown as Record<string, unknown>);
+  async setProperties(params: SetPropertiesParams): Promise<unknown> {
+    return await this.execute('setProperties', params as unknown as Record<string, unknown>);
   }
 
   async setLayout(params: SetLayoutParams): Promise<void> {
@@ -106,6 +108,16 @@ export class Primitives {
 
   async moveNode(params: MoveNodeParams): Promise<void> {
     await this.execute('moveNode', params as unknown as Record<string, unknown>);
+  }
+
+  async resizeNode(params: ResizeNodeParams): Promise<{ resized: boolean; nodeId: string; width: number; height: number }> {
+    const result = await this.execute('resizeNode', params as unknown as Record<string, unknown>);
+    return result as { resized: boolean; nodeId: string; width: number; height: number };
+  }
+
+  async createFromSvg(params: CreateFromSvgParams): Promise<{ id: string; name: string; type: string; width: number; height: number }> {
+    const result = await this.execute('createFromSvg', params as unknown as Record<string, unknown>);
+    return result as { id: string; name: string; type: string; width: number; height: number };
   }
 
   // ─── Export ──────────────────────────────────────────────

@@ -14,6 +14,8 @@ export type PrimitiveCommandType =
   | 'setProperties'
   | 'setLayout'
   | 'moveNode'
+  | 'resizeNode'
+  | 'createFromSvg'
   | 'exportNode'
   | 'duplicateNode'
   | 'groupNodes'
@@ -77,18 +79,18 @@ export interface GetNodePropertiesParams {
 }
 
 export interface FindNodesParams {
-  name?: string;
-  type?: string;
-  pageId?: string;
-  recursive?: boolean;
-  maxDepth?: number;
-  propertyFilter?: Record<string, unknown>;
+  name?: string;        // 名称匹配（支持 * 通配符）
+  type?: string | string[];  // 节点类型过滤（单个或多个）
+  pageId?: string;      // 指定页面
+  recursive?: boolean;  // 是否递归搜索子节点
+  maxDepth?: number;    // 递归搜索最大深度
+  propertyFilter?: Record<string, unknown>; // 按属性值过滤
 }
 
 export type LayoutDirection = 'NONE' | 'HORIZONTAL' | 'VERTICAL';
 
 export interface CreateNodeParams {
-  type: 'FRAME' | 'RECTANGLE' | 'ELLIPSE' | 'LINE' | 'COMPONENT' | 'INSTANCE';
+  type: 'FRAME' | 'RECTANGLE' | 'ELLIPSE' | 'LINE' | 'COMPONENT' | 'INSTANCE' | 'VECTOR' | 'STAR' | 'POLYGON';
   name: string;
   parentId?: string;
   x?: number;
@@ -106,7 +108,15 @@ export interface CreateNodeParams {
     color: { r: number; g: number; b: number; a?: number };
   }>;
   strokeWeight?: number;
+  strokeAlign?: 'CENTER' | 'INSIDE' | 'OUTSIDE';
+  strokeDashes?: number[];
   cornerRadius?: number;
+  topLeftRadius?: number;
+  topRightRadius?: number;
+  bottomLeftRadius?: number;
+  bottomRightRadius?: number;
+  pointCount?: number;
+  innerRadius?: number;
   effects?: Array<{
     type: 'DROP_SHADOW' | 'INNER_SHADOW' | 'LAYER_BLUR';
     offset?: { x: number; y: number };
@@ -153,6 +163,12 @@ export interface SetLayoutParams {
   counterAxisAlignItems?: 'MIN' | 'CENTER' | 'MAX';
   primaryAxisAlignItems?: 'MIN' | 'CENTER' | 'MAX' | 'SPACE_BETWEEN';
   layoutWrap?: 'NO_WRAP' | 'WRAP';
+  counterAxisSpacing?: number;  // Wrap 模式下行间距
+  // Layout Sizing — 控制子元素在主容器中的填充/自适应行为
+  layoutSizingHorizontal?: 'FIXED' | 'HUG' | 'FILL';
+  layoutSizingVertical?: 'FIXED' | 'HUG' | 'FILL';
+  layoutGrow?: number;        // 0 = 不填充, 1 = 填充剩余空间
+  layoutAlign?: 'MIN' | 'CENTER' | 'MAX' | 'STRETCH';  // 交叉轴拉伸（子元素级别）
 }
 
 export interface MoveNodeParams {
@@ -160,6 +176,22 @@ export interface MoveNodeParams {
   newParentId: string;
   index?: number;
 }
+
+export interface ResizeNodeParams {
+  nodeId: string;
+  width: number;
+  height: number;
+}
+
+export interface CreateFromSvgParams {
+  svg: string;
+  name?: string;
+  parentId?: string;
+  x?: number;
+  y?: number;
+}
+
+// ─── Export Commands ───────────────────────────────────────
 
 export interface ExportNodeParams {
   nodeId: string;

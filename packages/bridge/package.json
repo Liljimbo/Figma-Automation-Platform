@@ -33,6 +33,7 @@
   "dependencies": {
     "@figma-forge/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.12.0",
+    "imagetracerjs": "^1.2.6",
     "uuid": "^11.1.0",
     "ws": "^8.18.0",
     "zod": "^4.4.3"

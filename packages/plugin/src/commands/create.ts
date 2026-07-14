@@ -6,7 +6,9 @@ import { loadFont } from '../utils/font.js';
 
 type CommandHandler = (params: Record<string, unknown>) => Promise<unknown>;
 
-function appendToParent(
+// ─── 辅助：将节点添加到父节点 ──────────────────────────────
+
+export function appendToParent(
   node: SceneNode,
   parentId?: string,
 ): void {
@@ -17,7 +19,24 @@ function appendToParent(
       return;
     }
   }
-  figma.currentPage.appendChild(node);
+  // 未指定有效父节点时，追加到页面并自动错位避免重叠
+  const page = figma.currentPage;
+  page.appendChild(node);
+
+  // 自动向下偏移：找到当前所有子元素的最低点，新元素放在下面
+  if ('y' in node && page.children.length > 1) {
+    let maxY = 0;
+    for (const child of page.children) {
+      if (child.id !== node.id && 'y' in child && 'height' in child) {
+        const bottom = (child as SceneNode & { y: number; height: number }).y
+                      + (child as SceneNode & { y: number; height: number }).height;
+        if (bottom > maxY) maxY = bottom;
+      }
+    }
+    if (maxY > 0) {
+      (node as unknown as { y: number }).y = maxY + 40;  // 向下偏移 40px 间距
+    }
+  }
 }
 
 function applyBaseProps(
@@ -181,6 +200,20 @@ export const createNode: CommandHandler = async (params) => {
     if (p.itemSpacing !== undefined) frame.itemSpacing = p.itemSpacing as number;
   }
 
+  // 设置 Star/Polygon 特有属性
+  if (p.pointCount !== undefined && 'pointCount' in node) {
+    (node as StarNode).pointCount = p.pointCount as number;
+  }
+  if (p.innerRadius !== undefined && 'innerRadius' in node) {
+    (node as StarNode).innerRadius = p.innerRadius as number;
+  }
+
+  // 设置虚线描边
+  if (p.strokeDashes !== undefined && 'strokeDashes' in node) {
+    (node as unknown as { strokeDashes: number[] }).strokeDashes = p.strokeDashes as number[];
+  }
+
+  // 添加到父节点
   appendToParent(node, p.parentId as string | undefined);
 
   return {
@@ -237,33 +270,7 @@ export const createTextNode: CommandHandler = async (params) => {
   };
 };
 
-export const createComponent: CommandHandler = async (params) => {
-  const p = params as Record<string, unknown>;
-  const component = figma.createComponent();
-  component.name = (p.name as string) || 'Component';
-  applyBaseProps(component, p);
-  if (p.fills && Array.isArray(p.fills)) component.fills = p.fills as Paint[];
-  if ('layoutMode' in component && p.layoutMode) {
-    component.layoutMode = p.layoutMode as 'NONE' | 'HORIZONTAL' | 'VERTICAL';
-  }
-  appendToParent(component, p.parentId as string | undefined);
-  return { id: component.id, name: component.name, type: component.type };
-};
-
-export const createInstance: CommandHandler = async (params) => {
-  const p = params as Record<string, unknown>;
-  const mainComponentId = p.mainComponentId as string;
-  if (!mainComponentId) throw new Error('mainComponentId is required');
-  const mainNode = figma.getNodeById(mainComponentId);
-  if (!mainNode || mainNode.type !== 'COMPONENT') {
-    throw new Error(`Component not found: ${mainComponentId}`);
-  }
-  const instance = (mainNode as ComponentNode).createInstance();
-  instance.name = (p.name as string) || 'Instance';
-  applyBaseProps(instance, p);
-  appendToParent(instance, p.parentId as string | undefined);
-  return { id: instance.id, name: instance.name, type: instance.type };
-};
+// ─── 导出所有创建 handler ───────────────────────────────────
 
 export const createHandlers: Record<string, CommandHandler> = {
   createNode,

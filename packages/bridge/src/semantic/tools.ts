@@ -9,7 +9,7 @@
 
 import type { SemanticToolDefinition, SemanticResult, PrimitiveExecutor } from './types.js';
 import type { SemanticEntry } from './types.js';
-import type { PluginEvent, StartListeningParams, NodeSnapshot, NodeDiff } from '@figma-forge/shared';
+import type { PluginEvent, StartListeningParams, NodeSnapshot, NodeDiff, SetLayoutParams } from '@figma-forge/shared';
 import { SemanticRegistry } from './registry.js';
 import { Primitives } from './primitives.js';
 import { TemplateRegistry } from './templates.js';
@@ -100,7 +100,7 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
   },
   {
     name: 'create_container',
-    description: '创建一个容器（Frame），支持 Auto Layout。用于包裹其他元素',
+    description: '创建一个容器（Frame），支持 Auto Layout。这是放置其他元素的唯一正确方式。所有子元素都应该通过 parentId 放入容器中，容器会自动处理布局避免重叠\n⚠️ 如果已知子元素数量和尺寸，先调用 calculate_layout 计算容器所需尺寸。\n不指定 width/height 时容器会 HUG 自适应。需要固定尺寸时请精确计算。\nclipsContent=true 时超出容器的内容会被裁切。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -145,13 +145,39 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
           type: 'string',
           description: '父节点 ID（不传则创建在当前页面）',
         },
+        x: {
+          type: 'number',
+          description: '创建时的 X 坐标（父容器内的绝对位置）。仅在父容器非 Auto Layout 时有效',
+        },
+        y: {
+          type: 'number',
+          description: '创建时的 Y 坐标（父容器内的绝对位置）。仅在父容器非 Auto Layout 时有效',
+        },
+        layoutPreset: {
+          type: 'string',
+          description: '布局预设，自动应用一组预定义的布局属性。可选值: centered, stretch-fill, hug-content, sidebar-left, stack-vertical, grid-cell',
+          enum: ['centered', 'stretch-fill', 'hug-content', 'sidebar-left', 'stack-vertical', 'grid-cell'],
+        },
+        layoutWrap: {
+          type: 'string',
+          enum: ['NO_WRAP', 'WRAP'],
+          description: 'WRAP 模式下子元素自动换行（需配合 width 固定宽度使用）',
+        },
+        counterAxisSpacing: {
+          type: 'number',
+          description: '交叉轴间距（WRAP 模式的行间距，px）',
+        },
+        clipsContent: {
+          type: 'boolean',
+          description: '是否裁切超出容器的内容，默认 false',
+        },
       },
       required: ['name'],
     },
   },
   {
     name: 'create_text',
-    description: '创建文本节点',
+    description: '创建文本节点。必须指定 parentId 将其放入容器中，否则会在页面根级别重叠\n⚠️ 始终提供 parentId 以确保精确定位。不提供时文本会添加到页面根部。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -187,6 +213,8 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
           type: 'string',
           description: '父节点 ID',
         },
+        x: { type: 'number', description: '创建时的 X 坐标（父容器内的绝对位置）' },
+        y: { type: 'number', description: '创建时的 Y 坐标（父容器内的绝对位置）' },
       },
       required: ['content'],
     },
@@ -195,7 +223,7 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
   // ── UI 组件工具 ──
   {
     name: 'create_button',
-    description: '创建按钮组件，支持 primary/secondary/ghost 样式和 sm/md/lg 尺寸',
+    description: '创建按钮组件，支持 primary/secondary/ghost 样式和 sm/md/lg 尺寸。必须通过 parentId 放入容器中\n⚠️ 始终提供 parentId。不提供时按钮会添加到页面根部并自动偏移。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -204,16 +232,19 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
         variant: { type: 'string', enum: ['primary', 'secondary', 'ghost'], description: '按钮样式', default: 'primary' },
         size: { type: 'string', enum: ['sm', 'md', 'lg'], description: '按钮尺寸', default: 'md' },
         icon: { type: 'string', description: '图标名称（可选）' },
+        borderRadius: { type: 'number', description: '自定义圆角半径（px），默认 6' },
         fill: { type: 'string', description: '背景颜色（hex，仅 primary 可用）' },
         textColor: { type: 'string', description: '文字颜色（hex）' },
         parentId: { type: 'string', description: '父节点 ID' },
+        x: { type: 'number', description: '创建时的 X 坐标（父容器内的绝对位置）' },
+        y: { type: 'number', description: '创建时的 Y 坐标（父容器内的绝对位置）' },
       },
       required: ['name', 'label'],
     },
   },
   {
     name: 'create_card',
-    description: '创建卡片组件，支持 default/outlined/elevated 样式和 vertical/horizontal 布局',
+    description: '创建卡片组件，支持 default/outlined/elevated 样式和 vertical/horizontal 布局。通过 parentId 放入容器中\n⚠️ 如果已知子元素尺寸，先调用 calculate_layout 计算所需卡片尺寸。\n始终提供 parentId 以确保精确定位。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -224,7 +255,10 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
         layout: { type: 'string', enum: ['vertical', 'horizontal'], description: '布局方向', default: 'vertical' },
         actions: { type: 'array', items: { type: 'string' }, description: '操作按钮文字列表' },
         width: { type: 'number', description: '宽度（px）' },
+        borderRadius: { type: 'number', description: '自定义圆角半径（px），默认 8' },
         parentId: { type: 'string', description: '父节点 ID' },
+        x: { type: 'number', description: '创建时的 X 坐标（父容器内的绝对位置）' },
+        y: { type: 'number', description: '创建时的 Y 坐标（父容器内的绝对位置）' },
       },
       required: ['name'],
     },
@@ -264,17 +298,25 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
   },
   {
     name: 'create_icon',
-    description: '创建图标占位节点（使用文本模拟图标）',
+    description: '创建矢量图标节点。支持两种模式：1) 通过 svg 参数直接提供 SVG 图标内容；2) 通过 iconName 选择内置图标（arrow, check, close, search, heart, star, plus, minus, chevron-right, chevron-left, chevron-down, chevron-up, eye, lock, settings, home, user, mail, phone, calendar, clock, trash, edit, copy, download, upload, share, filter, sort, refresh）。如果不匹配内置图标则创建文本占位',
     inputSchema: {
       type: 'object',
       properties: {
         name: { type: 'string', description: '图标名称' },
-        icon: { type: 'string', description: '图标字符或标识' },
+        icon: { type: 'string', description: '图标字符（作为文本占位，当 svg 和 iconName 都未提供时使用）' },
+        iconName: {
+          type: 'string',
+          description: '内置图标名称（优先于 icon 文本占位）',
+          enum: ['arrow', 'check', 'close', 'search', 'heart', 'star', 'plus', 'minus', 'chevron-right', 'chevron-left', 'chevron-down', 'chevron-up', 'eye', 'lock', 'settings', 'home', 'user', 'mail', 'phone', 'calendar', 'clock', 'trash', 'edit', 'copy', 'download', 'upload', 'share', 'filter', 'sort', 'refresh'],
+        },
+        svg: { type: 'string', description: '自定义 SVG 图标内容（最高优先级）' },
         size: { type: 'number', description: '尺寸（px）', default: 24 },
-        color: { type: 'string', description: '图标颜色（hex）' },
+        color: { type: 'string', description: '图标颜色（hex）', default: '#374151' },
         parentId: { type: 'string', description: '父节点 ID' },
+        x: { type: 'number', description: '创建时的 X 坐标' },
+        y: { type: 'number', description: '创建时的 Y 坐标' },
       },
-      required: ['name', 'icon'],
+      required: ['name'],
     },
   },
   {
@@ -324,10 +366,183 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
     },
   },
 
+  // ── 曲线与矢量工具 ──
+  {
+    name: 'import_svg',
+    description: '导入任意 SVG 内容并创建 Figma 矢量节点。支持所有 SVG 元素：路径、贝塞尔曲线、圆弧、复杂形状等。这是创建自定义曲线和矢量图形的首选工具',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        svg: { type: 'string', description: '完整的 SVG 字符串（包含 <svg> 标签）。支持 path、circle、rect、ellipse、line、polyline、polygon 等所有 SVG 元素' },
+        name: { type: 'string', description: '导入后的节点名称' },
+        semantic: { type: 'string', description: '语义标签（如 "logo", "decoration", "custom-curve"）' },
+        parentId: { type: 'string', description: '父节点 ID（不传则创建在当前页面）' },
+        x: { type: 'number', description: '创建时的 X 坐标' },
+        y: { type: 'number', description: '创建时的 Y 坐标' },
+      },
+      required: ['svg'],
+    },
+  },
+  {
+    name: 'create_path',
+    description: '通过结构化的控制点数据创建贝塞尔曲线路径。每个点可以有进入和退出控制柄（handleIn/handleOut），用于精确控制曲线形状',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        points: {
+          type: 'array',
+          description: '路径点数组。第一个点定义起点，后续点通过控制柄定义曲线段',
+          items: {
+            type: 'object',
+            properties: {
+              x: { type: 'number', description: 'X 坐标' },
+              y: { type: 'number', description: 'Y 坐标' },
+              handleIn: { type: 'object', description: '进入控制柄（相对于点的偏移量）', properties: { x: { type: 'number' }, y: { type: 'number' } } },
+              handleOut: { type: 'object', description: '退出控制柄（相对于点的偏移量）', properties: { x: { type: 'number' }, y: { type: 'number' } } },
+            },
+            required: ['x', 'y'],
+          },
+        },
+        closed: { type: 'boolean', description: '是否闭合路径（首尾相连）', default: false },
+        strokeColor: { type: 'string', description: '描边颜色（hex 格式）' },
+        strokeWidth: { type: 'number', description: '描边宽度（px）', default: 1 },
+        fillColor: { type: 'string', description: '填充颜色（hex 格式）' },
+        name: { type: 'string', description: '路径节点名称' },
+        semantic: { type: 'string', description: '语义标签' },
+        parentId: { type: 'string', description: '父节点 ID' },
+        x: { type: 'number', description: '创建时的 X 坐标' },
+        y: { type: 'number', description: '创建时的 Y 坐标' },
+      },
+      required: ['points'],
+    },
+  },
+  {
+    name: 'create_arc',
+    description: '创建圆弧路径。支持指定起始角度、结束角度、半径和中心点。可用于创建弧形装饰、进度环等',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        cx: { type: 'number', description: '圆心 X 坐标', default: 0 },
+        cy: { type: 'number', description: '圆心 Y 坐标', default: 0 },
+        radius: { type: 'number', description: '弧形半径（px）', default: 50 },
+        startAngle: { type: 'number', description: '起始角度（度，0=右，顺时针）', default: 0 },
+        endAngle: { type: 'number', description: '结束角度（度）', default: 180 },
+        strokeColor: { type: 'string', description: '描边颜色（hex）', default: '#000000' },
+        strokeWidth: { type: 'number', description: '描边宽度（px）', default: 2 },
+        fillColor: { type: 'string', description: '填充颜色（hex，不填则无填充）' },
+        name: { type: 'string', description: '节点名称' },
+        semantic: { type: 'string', description: '语义标签' },
+        parentId: { type: 'string', description: '父节点 ID' },
+        x: { type: 'number', description: '创建时的 X 坐标' },
+        y: { type: 'number', description: '创建时的 Y 坐标' },
+      },
+    },
+  },
+  {
+    name: 'create_wave',
+    description: '创建波浪形路径。可用于装饰性的波浪分隔线、水波纹效果等',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        width: { type: 'number', description: '波浪总宽度（px）', default: 200 },
+        amplitude: { type: 'number', description: '波幅（振幅，px）', default: 20 },
+        frequency: { type: 'number', description: '波浪周期数', default: 2 },
+        strokeWidth: { type: 'number', description: '描边宽度（px）', default: 2 },
+        strokeColor: { type: 'string', description: '描边颜色（hex）', default: '#000000' },
+        fillColor: { type: 'string', description: '填充颜色（hex）' },
+        filled: { type: 'boolean', description: '是否创建闭合填充波浪（填充到基线）', default: false },
+        name: { type: 'string', description: '节点名称' },
+        semantic: { type: 'string', description: '语义标签' },
+        parentId: { type: 'string', description: '父节点 ID' },
+        x: { type: 'number', description: '创建时的 X 坐标' },
+        y: { type: 'number', description: '创建时的 Y 坐标' },
+      },
+    },
+  },
+  {
+    name: 'create_bezier_curve',
+    description: '在两个点之间创建三次贝塞尔曲线。指定起点、终点和两个控制点来定义曲线形状。适用于创建平滑的连接线、曲线箭头等',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        x1: { type: 'number', description: '起点 X 坐标' },
+        y1: { type: 'number', description: '起点 Y 坐标' },
+        x2: { type: 'number', description: '终点 X 坐标' },
+        y2: { type: 'number', description: '终点 Y 坐标' },
+        cp1x: { type: 'number', description: '第一个控制点 X（影响起点出方向）' },
+        cp1y: { type: 'number', description: '第一个控制点 Y' },
+        cp2x: { type: 'number', description: '第二个控制点 X（影响终点入方向）' },
+        cp2y: { type: 'number', description: '第二个控制点 Y' },
+        strokeColor: { type: 'string', description: '描边颜色（hex）', default: '#000000' },
+        strokeWidth: { type: 'number', description: '描边宽度（px）', default: 2 },
+        name: { type: 'string', description: '节点名称' },
+        semantic: { type: 'string', description: '语义标签' },
+        parentId: { type: 'string', description: '父节点 ID' },
+        x: { type: 'number', description: '创建时的 X 坐标' },
+        y: { type: 'number', description: '创建时的 Y 坐标' },
+      },
+      required: ['x1', 'y1', 'x2', 'y2'],
+    },
+  },
+  {
+    name: 'create_custom_shape',
+    description: '通过点数组创建自定义闭合形状。支持直线段和曲线段混合使用。适用于创建有机形状、blob、盾牌、徽章等非标准形状',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        points: {
+          type: 'array',
+          description: '形状轮廓点数组',
+          items: {
+            type: 'object',
+            properties: {
+              x: { type: 'number', description: 'X 坐标' },
+              y: { type: 'number', description: 'Y 坐标' },
+              handleIn: { type: 'object', description: '进入控制柄偏移', properties: { x: { type: 'number' }, y: { type: 'number' } } },
+              handleOut: { type: 'object', description: '退出控制柄偏移', properties: { x: { type: 'number' }, y: { type: 'number' } } },
+            },
+            required: ['x', 'y'],
+          },
+        },
+        fillColor: { type: 'string', description: '填充颜色（hex）', default: '#E5E7EB' },
+        strokeColor: { type: 'string', description: '描边颜色（hex）' },
+        strokeWidth: { type: 'number', description: '描边宽度（px）', default: 0 },
+        name: { type: 'string', description: '形状名称' },
+        semantic: { type: 'string', description: '语义标签' },
+        parentId: { type: 'string', description: '父节点 ID' },
+        x: { type: 'number', description: '创建时的 X 坐标' },
+        y: { type: 'number', description: '创建时的 Y 坐标' },
+      },
+      required: ['points'],
+    },
+  },
+
+  // ── 位图矢量化工具 ──
+  {
+    name: 'trace_image',
+    description: '将位图（PNG）图像自动追踪转换为矢量 SVG 路径并导入 Figma。支持 base64 编码的 PNG 数据或本地文件路径。使用 imagetracerjs 算法进行颜色量化和路径追踪，生成可编辑的矢量节点',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        imageData: { type: 'string', description: 'base64 编码的 PNG 图像数据（不含 data:image 前缀）' },
+        filePath: { type: 'string', description: '本地 PNG 文件路径（与 imageData 二选一）' },
+        colors: { type: 'number', description: '颜色数量（2-64），越少越简化', default: 8 },
+        pathPrecision: { type: 'number', description: '路径精度（1=粗糙, 5=精细）', default: 3 },
+        simplify: { type: 'boolean', description: '是否简化路径', default: true },
+        scale: { type: 'number', description: '输出缩放比例', default: 1 },
+        name: { type: 'string', description: '节点名称' },
+        semantic: { type: 'string', description: '语义标签' },
+        parentId: { type: 'string', description: '父节点 ID' },
+        x: { type: 'number', description: '创建时的 X 坐标' },
+        y: { type: 'number', description: '创建时的 Y 坐标' },
+      },
+    },
+  },
+
   // ── 布局组件工具 ──
   {
     name: 'create_header',
-    description: '创建页头组件，包含标题、副标题和操作按钮区域',
+    description: '创建页头组件，包含标题、副标题和操作按钮区域\n⚠️ 始终提供 parentId 以确保精确定位。不指定 width 时使用 HUG 自适应。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -338,6 +553,8 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
         width: { type: 'number', description: '宽度（px）' },
         fill: { type: 'string', description: '背景颜色（hex）' },
         parentId: { type: 'string', description: '父节点 ID' },
+        x: { type: 'number', description: '创建时的 X 坐标（父容器内的绝对位置）' },
+        y: { type: 'number', description: '创建时的 Y 坐标（父容器内的绝对位置）' },
       },
       required: ['name'],
     },
@@ -456,7 +673,7 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
   },
   {
     name: 'create_hero',
-    description: '创建 Hero 区域组件，包含标题、副标题和 CTA 按钮',
+    description: '创建 Hero 区域组件，包含标题、副标题和 CTA 按钮\n⚠️ 如果已知内部元素尺寸，先调用 calculate_layout 计算 hero section 所需尺寸。\n始终提供 parentId 以确保精确定位。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -468,6 +685,8 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
         height: { type: 'number', description: '高度（px）' },
         fill: { type: 'string', description: '背景颜色（hex）' },
         parentId: { type: 'string', description: '父节点 ID' },
+        x: { type: 'number', description: '创建时的 X 坐标（父容器内的绝对位置）' },
+        y: { type: 'number', description: '创建时的 Y 坐标（父容器内的绝对位置）' },
       },
       required: ['name', 'title'],
     },
@@ -682,6 +901,68 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
         },
       },
       required: ['semantic'],
+    },
+  },
+
+  // ── 布局工具 ──
+  {
+    name: 'set_layout',
+    description: '设置节点的 Auto Layout 属性（方向、对齐、间距、内边距等）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        nodeId: { type: 'string', description: '节点 ID。设置 layoutSizing 属性时，节点需在 Auto Layout 父容器内才有效' },
+        direction: { type: 'string', enum: ['NONE', 'HORIZONTAL', 'VERTICAL'], description: '布局方向' },
+        counterAxisAlignItems: { type: 'string', enum: ['MIN', 'CENTER', 'MAX'], description: '交叉轴对齐方式' },
+        primaryAxisAlignItems: { type: 'string', enum: ['MIN', 'MAX', 'CENTER', 'SPACE_BETWEEN'], description: '主轴对齐方式' },
+        paddingLeft: { type: 'number', description: '左内边距' },
+        paddingRight: { type: 'number', description: '右内边距' },
+        paddingTop: { type: 'number', description: '上内边距' },
+        paddingBottom: { type: 'number', description: '下内边距' },
+        itemSpacing: { type: 'number', description: '子元素间距（主轴方向）' },
+        layoutWrap: { type: 'string', enum: ['NO_WRAP', 'WRAP'], description: '换行模式' },
+        counterAxisSpacing: { type: 'number', description: 'Wrap 模式下的行间距（交叉轴方向）' },
+        layoutSizingHorizontal: {
+          type: 'string',
+          description: '子元素在主轴方向的尺寸模式。FIXED=固定尺寸, HUG=自适应内容, FILL=填满父容器。设置在父容器上时影响其自身在祖父容器中的行为',
+          enum: ['FIXED', 'HUG', 'FILL'],
+        },
+        layoutSizingVertical: {
+          type: 'string',
+          description: '子元素在交叉轴方向的尺寸模式。FIXED=固定尺寸, HUG=自适应内容, FILL=填满父容器。设置在父容器上时影响其自身在祖父容器中的行为',
+          enum: ['FIXED', 'HUG', 'FILL'],
+        },
+        layoutGrow: {
+          type: 'number',
+          description: '子元素是否填充父容器的剩余空间。0=不填充(默认), 1=填充。用于控制同级元素中的空间分配',
+        },
+        layoutAlign: {
+          type: 'string',
+          description: '子元素在交叉轴上的对齐拉伸行为。MIN=起始对齐, CENTER=居中, MAX=末尾对齐, STRETCH=拉伸填满交叉轴',
+          enum: ['MIN', 'CENTER', 'MAX', 'STRETCH'],
+        },
+        layoutPreset: {
+          type: 'string',
+          description: '布局预设，自动应用一组预定义的布局属性。显式参数会覆盖预设值。可选值: centered(居中), stretch-fill(拉伸填满), hug-content(自适应内容), sidebar-left(左侧边栏), stack-vertical(垂直堆叠), grid-cell(网格单元格)',
+          enum: ['centered', 'stretch-fill', 'hug-content', 'sidebar-left', 'stack-vertical', 'grid-cell'],
+        },
+      },
+      required: ['nodeId'],
+    },
+  },
+
+  // ── 位置工具 ──
+  {
+    name: 'set_position',
+    description: '设置节点在画布上的绝对位置（x/y 坐标）。用于控制顶层 frame 的排列，避免重叠',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        nodeId: { type: 'string', description: '节点 ID' },
+        x: { type: 'number', description: 'X 坐标（距画布左边缘的像素值）' },
+        y: { type: 'number', description: 'Y 坐标（距画布上边缘的像素值）' },
+      },
+      required: ['nodeId'],
     },
   },
 
@@ -978,9 +1259,153 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
       required: ['name', 'description', 'tools'],
     },
   },
+  {
+    name: 'calculate_layout',
+    description: `纯计算工具：根据子元素尺寸和布局参数，计算容器所需的最小尺寸。
+不操作 Figma，只返回数值结果。
+⚠️ 创建容器前务必先调用此工具计算正确尺寸，避免内容被裁切。
+返回 { width, height, rows/columns, children 布局坐标 }。`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        children: {
+          type: 'array',
+          description: '子元素尺寸列表',
+          items: {
+            type: 'object',
+            properties: {
+              width: { type: 'number', description: '子元素宽度' },
+              height: { type: 'number', description: '子元素高度' },
+            },
+            required: ['width', 'height'],
+          },
+        },
+        direction: {
+          type: 'string',
+          enum: ['VERTICAL', 'HORIZONTAL'],
+          description: '布局方向。VERTICAL=从上到下, HORIZONTAL=从左到右',
+          default: 'VERTICAL',
+        },
+        layoutWrap: {
+          type: 'string',
+          enum: ['NO_WRAP', 'WRAP'],
+          description: 'WRAP 时子元素会自动换行（需配合 maxWidth 使用）',
+          default: 'NO_WRAP',
+        },
+        maxWidth: {
+          type: 'number',
+          description: '容器最大宽度。WRAP 模式下必须指定，用于计算换行',
+        },
+        padding: {
+          type: 'number',
+          description: '四边统一内边距',
+          default: 0,
+        },
+        paddingTop: { type: 'number', description: '上内边距（覆盖 padding）' },
+        paddingBottom: { type: 'number', description: '下内边距（覆盖 padding）' },
+        paddingLeft: { type: 'number', description: '左内边距（覆盖 padding）' },
+        paddingRight: { type: 'number', description: '右内边距（覆盖 padding）' },
+        itemSpacing: {
+          type: 'number',
+          description: '主轴方向子元素间距',
+          default: 0,
+        },
+        counterAxisSpacing: {
+          type: 'number',
+          description: '交叉轴方向间距（WRAP 模式的行间距）',
+          default: 0,
+        },
+      },
+      required: ['children'],
+    },
+  },
+  {
+    name: 'fit_to_children',
+    description: `自动调整容器尺寸以完美适配其所有子元素。
+读取所有子元素的 bounds，计算包围盒，然后 resize 容器。
+支持可选的 padding、最大尺寸限制、以及缩小模式。
+⚠️ 创建容器后发现尺寸不合适时使用此工具修复。`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        nodeId: {
+          type: 'string',
+          description: '要调整的容器节点 ID',
+        },
+        padding: {
+          type: 'number',
+          description: '四边统一内边距（调整后应用）',
+          default: 0,
+        },
+        shrink: {
+          type: 'boolean',
+          description: 'true 时容器也可以缩小; false 时只扩大不缩小',
+          default: false,
+        },
+        maxWidth: {
+          type: 'number',
+          description: '最大宽度限制',
+        },
+        maxHeight: {
+          type: 'number',
+          description: '最大高度限制',
+        },
+      },
+      required: ['nodeId'],
+    },
+  },
+  {
+    name: 'check_bounds',
+    description: `验证容器内所有子元素是否在边界内，超出时提供诊断。
+可选 autoFix=true 自动调整容器大小以包含所有子元素。
+用于创建后的验证步骤，确保内容不会被 clipsContent 裁切。`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        nodeId: {
+          type: 'string',
+          description: '要检查的容器节点 ID',
+        },
+        autoFix: {
+          type: 'boolean',
+          description: 'true 时自动调整容器大小以包含溢出的子元素',
+          default: false,
+        },
+      },
+      required: ['nodeId'],
+    },
+  },
 ];
 
 // ─── Tool Implementations ─────────────────────────────────
+
+/** 布局预设：每组预定义的 Auto Layout 属性组合 */
+const LAYOUT_PRESETS: Record<string, Record<string, unknown>> = {
+  'centered': {
+    primaryAxisAlignItems: 'CENTER',
+    counterAxisAlignItems: 'CENTER',
+  },
+  'stretch-fill': {
+    layoutSizingHorizontal: 'FILL',
+    layoutSizingVertical: 'FILL',
+  },
+  'hug-content': {
+    layoutSizingHorizontal: 'HUG',
+    layoutSizingVertical: 'HUG',
+  },
+  'sidebar-left': {
+    direction: 'HORIZONTAL',
+    layoutSizingVertical: 'FILL',
+  },
+  'stack-vertical': {
+    direction: 'VERTICAL',
+    itemSpacing: 8,
+  },
+  'grid-cell': {
+    layoutSizingHorizontal: 'FILL',
+    layoutSizingVertical: 'HUG',
+  },
+};
 
 export class SemanticTools {
   private primitives: Primitives;
@@ -1031,6 +1456,22 @@ export class SemanticTools {
         case 'create_badge':
           return await this.createBadge(params);
 
+        // ── 曲线与矢量工具 ──
+        case 'import_svg':
+          return await this.importSvg(params);
+        case 'create_path':
+          return await this.createPath(params);
+        case 'create_arc':
+          return await this.createArc(params);
+        case 'create_wave':
+          return await this.createWave(params);
+        case 'create_bezier_curve':
+          return await this.createBezierCurve(params);
+        case 'create_custom_shape':
+          return await this.createCustomShape(params);
+        case 'trace_image':
+          return await this.traceImage(params);
+
         // ── 布局组件工具 ──
         case 'create_header':
           return await this.createHeader(params);
@@ -1066,6 +1507,10 @@ export class SemanticTools {
           return await this.updateNode(params);
         case 'update_by_semantic':
           return await this.updateBySemantic(params);
+        case 'set_layout':
+          return await this.setLayout(params);
+        case 'set_position':
+          return await this.setPosition(params);
         case 'delete_node':
           return await this.deleteNode(params);
         case 'delete_by_semantic':
@@ -1131,6 +1576,16 @@ export class SemanticTools {
         case 'save_as_template':
           return await this.saveAsTemplate(params);
 
+        // ── Layout Calculation 工具 ──
+        case 'calculate_layout':
+          return this.calculateLayout(params);
+
+        // ── Layout Validation 工具 ──
+        case 'fit_to_children':
+          return await this.fitToChildren(params);
+        case 'check_bounds':
+          return await this.checkBounds(params);
+
         default:
           return { success: false, error: `Unknown tool: ${toolName}` };
       }
@@ -1161,9 +1616,13 @@ export class SemanticTools {
     const {
       name, semantic, direction, padding, gap,
       width, height, fill, cornerRadius, parentId,
+      layoutPreset, layoutWrap, counterAxisSpacing, clipsContent,
     } = params as Record<string, unknown>;
 
     const fills = parseFills(fill as string | undefined);
+
+    const x = params.x as number | undefined;
+    const y = params.y as number | undefined;
 
     const node = await this.primitives.createNode({
       type: 'FRAME',
@@ -1173,19 +1632,58 @@ export class SemanticTools {
       height: height as number | undefined,
       fills: fills as FigmaFill[],
       cornerRadius: cornerRadius as number | undefined,
+      x,
+      y,
     });
 
-    if (direction || padding !== undefined || gap !== undefined) {
-      const p = typeof padding === 'number' ? padding : 0;
-      const g = typeof gap === 'number' ? gap : 0;
-      await this.primitives.setLayout({
+    // 合并布局预设与显式参数（显式参数优先）
+    const p = typeof padding === 'number' ? padding : 0;
+    const g = typeof gap === 'number' ? gap : 0;
+    const layoutArgs = {
+      nodeId: node.id,
+      direction: (direction as 'VERTICAL' | 'HORIZONTAL') || 'VERTICAL',
+      paddingLeft: p,
+      paddingRight: p,
+      paddingTop: p,
+      paddingBottom: p,
+      itemSpacing: g,
+      // WRAP 模式支持
+      ...(layoutWrap !== undefined && { layoutWrap: layoutWrap as 'NO_WRAP' | 'WRAP' }),
+      ...(counterAxisSpacing !== undefined && { counterAxisSpacing: counterAxisSpacing as number }),
+      // 智能默认：未指定宽/高的方向自动 HUG，容器自适应内容
+      // 指定了宽度时，WRAP 模式需要 FIXED 以触发换行
+      ...(width === undefined
+        ? { layoutSizingHorizontal: 'HUG' as const }
+        : (layoutWrap === 'WRAP' && { layoutSizingHorizontal: 'FIXED' as const })),
+      ...(height === undefined && { layoutSizingVertical: 'HUG' as const }),
+    } as SetLayoutParams;
+
+    if (layoutPreset) {
+      const preset = LAYOUT_PRESETS[layoutPreset as string];
+      if (preset) {
+        // 预设作为默认值，显式参数覆盖
+        Object.assign(layoutArgs, preset, {
+          nodeId: node.id,  // 确保 nodeId 不被覆盖
+          ...(direction !== undefined && { direction }),
+          ...(padding !== undefined && { paddingLeft: p, paddingRight: p, paddingTop: p, paddingBottom: p }),
+          ...(gap !== undefined && { itemSpacing: g }),
+          ...(layoutWrap !== undefined && { layoutWrap }),
+          ...(counterAxisSpacing !== undefined && { counterAxisSpacing }),
+        });
+      }
+    }
+
+    // 如果有布局参数或预设，应用 Auto Layout
+    if (layoutPreset || direction || padding !== undefined || gap !== undefined
+        || layoutWrap !== undefined || counterAxisSpacing !== undefined) {
+      await this.primitives.setLayout(layoutArgs);
+    }
+
+    // 设置 clipsContent（如果有指定）
+    if (clipsContent !== undefined) {
+      await this.primitives.setProperties({
         nodeId: node.id,
-        direction: (direction as 'HORIZONTAL' | 'VERTICAL') || 'VERTICAL',
-        paddingLeft: p,
-        paddingRight: p,
-        paddingTop: p,
-        paddingBottom: p,
-        itemSpacing: g,
+        properties: { clipsContent },
       });
     }
 
@@ -1204,6 +1702,9 @@ export class SemanticTools {
   private async createText(params: Record<string, unknown>): Promise<SemanticResult> {
     const { content, name, semantic, fontSize, fontWeight, fontFamily, color, parentId } = params;
 
+    const x = params.x as number | undefined;
+    const y = params.y as number | undefined;
+
     const node = await this.primitives.createTextNode({
       content: content as string,
       name: (name as string) || 'Text',
@@ -1212,6 +1713,8 @@ export class SemanticTools {
       fontWeight: fontWeight as string | undefined,
       fontFamily: fontFamily as string | undefined,
       color: parseColor(color as string | undefined),
+      x,
+      y,
     });
 
     const semanticType = (semantic as string) || 'text';
@@ -1252,13 +1755,18 @@ export class SemanticTools {
     const btnColor = fill && typeof fill === 'string' ? fill : style.fill;
     const txtColor = textColor && typeof textColor === 'string' ? textColor : style.text;
 
+    const x = params.x as number | undefined;
+    const y = params.y as number | undefined;
+
     // 创建按钮容器
     const btn = await this.primitives.createNode({
       type: 'FRAME',
       name: name as string,
       parentId: parentId as string | undefined,
       fills: parseFills(btnColor),
-      cornerRadius: 6,
+      cornerRadius: (params.borderRadius as number) ?? 6,
+      x,
+      y,
     });
 
     await this.primitives.setLayout({
@@ -1311,7 +1819,7 @@ export class SemanticTools {
     const { name, title, description, variant = 'default', layout = 'vertical', actions, width, parentId } = params;
 
     const isHorizontal = layout === 'horizontal';
-    let cornerRadius = 8;
+    let cornerRadius = (params.borderRadius as number) ?? 8;
     let cardFills: FigmaFill[] = parseFills('#FFFFFF');
     let cardStrokes: FigmaStroke[] = [];
     let cardEffects: FigmaEffect[] = [];
@@ -1324,6 +1832,9 @@ export class SemanticTools {
       cardEffects = [{ type: 'DROP_SHADOW', offset: { x: 0, y: 2 }, radius: 8, color: { r: 0, g: 0, b: 0, a: 0.1 }, visible: true, blendMode: 'NORMAL' }];
     }
 
+    const x = params.x as number | undefined;
+    const y = params.y as number | undefined;
+
     const card = await this.primitives.createNode({
       type: 'FRAME',
       name: name as string,
@@ -1334,6 +1845,8 @@ export class SemanticTools {
       strokeWeight: cardStrokeWeight,
       effects: cardEffects,
       cornerRadius,
+      x,
+      y,
     });
 
     await this.primitives.setLayout({
@@ -1539,11 +2052,87 @@ export class SemanticTools {
     return { success: true, data: { ...avatar, semantic: 'avatar', shape } };
   }
 
-  private async createIcon(params: Record<string, unknown>): Promise<SemanticResult> {
-    const { name, icon, size = 24, color, parentId } = params;
+  /** 内置 SVG 图标库（24x24 viewBox，线性风格） */
+  private static readonly ICON_SVGS: Record<string, string> = {
+    'arrow': '<path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    'check': '<path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    'close': '<path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
+    'search': '<circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2" fill="none"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
+    'heart': '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'star': '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/>',
+    'plus': '<path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
+    'minus': '<path d="M5 12h14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
+    'chevron-right': '<path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    'chevron-left': '<path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    'chevron-down': '<path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    'chevron-up': '<path d="M18 15l-6-6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    'eye': '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'lock': '<rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'home': '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="2" fill="none"/><polyline points="9 22 9 12 15 12 15 22" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'user': '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'mail': '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" stroke-width="2" fill="none"/><polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'trash': '<polyline points="3 6 5 6 21 6" stroke="currentColor" stroke-width="2" fill="none"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'edit': '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="2" fill="none"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'copy': '<rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" fill="none"/><polyline points="7 10 12 15 17 10" stroke="currentColor" stroke-width="2" fill="none"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'upload': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" fill="none"/><polyline points="17 8 12 3 7 8" stroke="currentColor" stroke-width="2" fill="none"/><line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'share': '<circle cx="18" cy="5" r="3" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="6" cy="12" r="3" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="18" cy="19" r="3" stroke="currentColor" stroke-width="2" fill="none"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" stroke="currentColor" stroke-width="2" fill="none"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'filter': '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'sort': '<line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" fill="none"/><polyline points="19 12 12 19 5 12" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'refresh': '<polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" fill="none"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'phone': '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'calendar': '<rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" stroke-width="2" fill="none"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2" fill="none"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2" fill="none"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2" fill="none"/>',
+    'clock': '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/><polyline points="12 6 12 12 16 14" stroke="currentColor" stroke-width="2" fill="none"/>',
+  };
 
+  private async createIcon(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { name, icon, iconName, svg, size = 24, color = '#374151', parentId, x, y } = params;
+
+    // 优先级: svg > iconName > icon (文本占位)
+    if (svg && typeof svg === 'string') {
+      const node = await this.primitives.createFromSvg({
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}">${svg}</svg>`,
+        name: name as string,
+        parentId: parentId as string | undefined,
+        x: x as number | undefined,
+        y: y as number | undefined,
+      });
+
+      const entry: SemanticEntry = {
+        nodeId: node.id, type: 'icon', name: name as string,
+        createdAt: Date.now(), parentId: parentId as string | undefined,
+        metadata: { icon: 'custom-svg', size },
+      };
+      this.registry.register(entry);
+      return { success: true, data: { ...node, semantic: 'icon' } };
+    }
+
+    if (iconName && typeof iconName === 'string' && SemanticTools.ICON_SVGS[iconName]) {
+      const colorStr = this.hexToSvgColor(color as string);
+      const paths = SemanticTools.ICON_SVGS[iconName].replace(/currentColor/g, colorStr);
+
+      const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}">${paths}</svg>`;
+
+      const node = await this.primitives.createFromSvg({
+        svg: svgStr,
+        name: name as string,
+        parentId: parentId as string | undefined,
+        x: x as number | undefined,
+        y: y as number | undefined,
+      });
+
+      const entry: SemanticEntry = {
+        nodeId: node.id, type: 'icon', name: name as string,
+        createdAt: Date.now(), parentId: parentId as string | undefined,
+        metadata: { iconName, size },
+      };
+      this.registry.register(entry);
+      return { success: true, data: { ...node, semantic: 'icon', iconName } };
+    }
+
+    // 兜底: 文本占位（向后兼容）
     const iconNode = await this.primitives.createTextNode({
-      content: icon as string,
+      content: (icon as string) || '?',
       name: name as string,
       parentId: parentId as string | undefined,
       fontSize: size as number,
@@ -1551,16 +2140,351 @@ export class SemanticTools {
     });
 
     const entry: SemanticEntry = {
-      nodeId: iconNode.id,
-      type: 'icon',
-      name: name as string,
-      createdAt: Date.now(),
-      parentId: parentId as string | undefined,
+      nodeId: iconNode.id, type: 'icon', name: name as string,
+      createdAt: Date.now(), parentId: parentId as string | undefined,
       metadata: { icon, size },
     };
     this.registry.register(entry);
-
     return { success: true, data: { ...iconNode, semantic: 'icon' } };
+  }
+
+  /** 将 hex 颜色转换为 CSS rgb() 格式（用于 SVG 内联样式） */
+  private hexToSvgColor(hex: string): string {
+    const c = hexToRgb(hex);
+    return `rgb(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)})`;
+  }
+
+  /** 将点数组转换为 SVG path d 属性 */
+  private pointsToSvgPath(
+    points: Array<{ x: number; y: number; handleIn?: { x: number; y: number }; handleOut?: { x: number; y: number } }>,
+    closed: boolean,
+  ): string {
+    let d = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const hOut = prev.handleOut || { x: 0, y: 0 };
+      const hIn = curr.handleIn || { x: 0, y: 0 };
+      if (hOut.x !== 0 || hOut.y !== 0 || hIn.x !== 0 || hIn.y !== 0) {
+        d += ` C ${prev.x + hOut.x} ${prev.y + hOut.y} ${curr.x + hIn.x} ${curr.y + hIn.y} ${curr.x} ${curr.y}`;
+      } else {
+        d += ` L ${curr.x} ${curr.y}`;
+      }
+    }
+    if (closed && points.length > 1) {
+      const last = points[points.length - 1];
+      const first = points[0];
+      const hOut = last.handleOut || { x: 0, y: 0 };
+      const hIn = first.handleIn || { x: 0, y: 0 };
+      if (hOut.x !== 0 || hOut.y !== 0 || hIn.x !== 0 || hIn.y !== 0) {
+        d += ` C ${last.x + hOut.x} ${last.y + hOut.y} ${first.x + hIn.x} ${first.y + hIn.y} ${first.x} ${first.y}`;
+      }
+      d += ' Z';
+    }
+    return d;
+  }
+
+  /** 构建完整 SVG 字符串（含 viewBox 计算） */
+  private buildSvgString(d: string, style: string, pad: number, bounds: { minX: number; minY: number; maxX: number; maxY: number }): string {
+    const vbX = bounds.minX - pad;
+    const vbY = bounds.minY - pad;
+    const vbW = (bounds.maxX - bounds.minX) + pad * 2;
+    const vbH = (bounds.maxY - bounds.minY) + pad * 2;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" width="${vbW}" height="${vbH}"><path d="${d}" style="${style}" /></svg>`;
+  }
+
+  private async importSvg(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { svg, name, semantic, parentId, x, y } = params;
+
+    if (!svg || typeof svg !== 'string') {
+      return { success: false, error: 'svg parameter is required and must be a string' };
+    }
+
+    const node = await this.primitives.createFromSvg({
+      svg: svg as string,
+      name: (name as string) || 'SVG Import',
+      parentId: parentId as string | undefined,
+      x: x as number | undefined,
+      y: y as number | undefined,
+    });
+
+    const semanticType = (semantic as string) || 'svg-import';
+    this.registry.register({
+      nodeId: node.id,
+      type: semanticType,
+      name: (name as string) || 'SVG Import',
+      createdAt: Date.now(),
+      parentId: parentId as string | undefined,
+    });
+
+    return { success: true, data: { ...node, semantic: semanticType } };
+  }
+
+  private async createPath(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { points, closed = false, strokeColor, strokeWidth = 1, fillColor, name, semantic, parentId, x, y } = params;
+
+    if (!Array.isArray(points) || points.length < 2) {
+      return { success: false, error: 'points must be an array with at least 2 points' };
+    }
+
+    const pts = points as Array<{ x: number; y: number; handleIn?: { x: number; y: number }; handleOut?: { x: number; y: number } }>;
+    const d = this.pointsToSvgPath(pts, closed as boolean);
+
+    // Build styles
+    const sc = strokeColor ? this.hexToSvgColor(strokeColor as string) : 'rgb(0,0,0)';
+    const strokeStyle = `stroke:${sc};stroke-width:${strokeWidth};stroke-linecap:round;stroke-linejoin:round;`;
+    const fillStyle = fillColor ? `fill:${this.hexToSvgColor(fillColor as string)};` : 'fill:none;';
+
+    // Compute bounding box
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of pts) {
+      minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+    }
+
+    const svg = this.buildSvgString(d, strokeStyle + fillStyle, strokeWidth as number + 2, { minX, minY, maxX, maxY });
+
+    const node = await this.primitives.createFromSvg({
+      svg,
+      name: (name as string) || 'Path',
+      parentId: parentId as string | undefined,
+      x: x as number | undefined,
+      y: y as number | undefined,
+    });
+
+    const semanticType = (semantic as string) || 'path';
+    this.registry.register({
+      nodeId: node.id, type: semanticType, name: (name as string) || 'Path',
+      createdAt: Date.now(), parentId: parentId as string | undefined,
+    });
+
+    return { success: true, data: { ...node, semantic: semanticType, pathData: d } };
+  }
+
+  private async createArc(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { cx = 0, cy = 0, radius = 50, startAngle = 0, endAngle = 180,
+      strokeColor = '#000000', strokeWidth = 2, fillColor, name, semantic, parentId, x, y } = params;
+
+    const startRad = ((startAngle as number) * Math.PI) / 180;
+    const endRad = ((endAngle as number) * Math.PI) / 180;
+    const r = radius as number;
+    const _cx = cx as number, _cy = cy as number;
+
+    const x1 = _cx + r * Math.cos(startRad);
+    const y1 = _cy + r * Math.sin(startRad);
+    const x2 = _cx + r * Math.cos(endRad);
+    const y2 = _cy + r * Math.sin(endRad);
+
+    const angleDiff = Math.abs(endRad - startRad);
+    const largeArc = angleDiff > Math.PI ? 1 : 0;
+
+    const d = `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
+
+    const sc = this.hexToSvgColor(strokeColor as string);
+    let style = `stroke:${sc};stroke-width:${strokeWidth};stroke-linecap:round;fill:none;`;
+    if (fillColor) {
+      style = `stroke:${sc};stroke-width:${strokeWidth};stroke-linecap:round;fill:${this.hexToSvgColor(fillColor as string)};`;
+    }
+
+    const svg = this.buildSvgString(d, style, (strokeWidth as number) + 2, {
+      minX: _cx - r, minY: _cy - r, maxX: _cx + r, maxY: _cy + r,
+    });
+
+    const node = await this.primitives.createFromSvg({
+      svg, name: (name as string) || 'Arc', parentId: parentId as string | undefined,
+      x: x as number | undefined, y: y as number | undefined,
+    });
+
+    const semanticType = (semantic as string) || 'arc';
+    this.registry.register({
+      nodeId: node.id, type: semanticType, name: (name as string) || 'Arc',
+      createdAt: Date.now(), parentId: parentId as string | undefined,
+    });
+
+    return { success: true, data: { ...node, semantic: semanticType } };
+  }
+
+  private async createWave(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { width = 200, amplitude = 20, frequency = 2, strokeWidth = 2,
+      strokeColor = '#000000', fillColor, filled = false, name, semantic, parentId, x, y } = params;
+
+    const w = width as number, a = amplitude as number, f = frequency as number;
+    const steps = Math.max(20, f * 20);
+    const stepW = w / steps;
+
+    let d = '';
+    for (let i = 0; i <= steps; i++) {
+      const x = i * stepW;
+      const y = a * Math.sin((2 * Math.PI * f * i) / steps);
+      d += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
+    }
+
+    if (filled) {
+      d += ` L ${w} 0 L 0 0 Z`;
+    }
+
+    const sc = this.hexToSvgColor(strokeColor as string);
+    const fillVal = fillColor ? `fill:${this.hexToSvgColor(fillColor as string)};` : 'fill:none;';
+    const style = `stroke:${sc};stroke-width:${strokeWidth};stroke-linecap:round;stroke-linejoin:round;${fillVal}`;
+
+    const svg = this.buildSvgString(d, style, (strokeWidth as number) + a, {
+      minX: 0, minY: -a, maxX: w, maxY: a,
+    });
+
+    const node = await this.primitives.createFromSvg({
+      svg, name: (name as string) || 'Wave', parentId: parentId as string | undefined,
+      x: x as number | undefined, y: y as number | undefined,
+    });
+
+    const semanticType = (semantic as string) || 'wave';
+    this.registry.register({
+      nodeId: node.id, type: semanticType, name: (name as string) || 'Wave',
+      createdAt: Date.now(), parentId: parentId as string | undefined,
+    });
+
+    return { success: true, data: { ...node, semantic: semanticType } };
+  }
+
+  private async createBezierCurve(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { x1, y1, x2, y2, cp1x, cp1y, cp2x, cp2y,
+      strokeColor = '#000000', strokeWidth = 2, name, semantic, parentId, x, y } = params;
+
+    const _x1 = x1 as number, _y1 = y1 as number, _x2 = x2 as number, _y2 = y2 as number;
+    const _cp1x = (cp1x as number) ?? _x1 + (_x2 - _x1) * 0.3;
+    const _cp1y = (cp1y as number) ?? _y1;
+    const _cp2x = (cp2x as number) ?? _x2 - (_x2 - _x1) * 0.3;
+    const _cp2y = (cp2y as number) ?? _y2;
+
+    const d = `M ${_x1} ${_y1} C ${_cp1x} ${_cp1y} ${_cp2x} ${_cp2y} ${_x2} ${_y2}`;
+
+    const sc = this.hexToSvgColor(strokeColor as string);
+    const style = `stroke:${sc};stroke-width:${strokeWidth};fill:none;stroke-linecap:round;`;
+
+    const allX = [_x1, _x2, _cp1x, _cp2x];
+    const allY = [_y1, _y2, _cp1y, _cp2y];
+
+    const svg = this.buildSvgString(d, style, (strokeWidth as number) + 2, {
+      minX: Math.min(...allX), minY: Math.min(...allY),
+      maxX: Math.max(...allX), maxY: Math.max(...allY),
+    });
+
+    const node = await this.primitives.createFromSvg({
+      svg, name: (name as string) || 'Bezier Curve', parentId: parentId as string | undefined,
+      x: x as number | undefined, y: y as number | undefined,
+    });
+
+    const semanticType = (semantic as string) || 'bezier-curve';
+    this.registry.register({
+      nodeId: node.id, type: semanticType, name: (name as string) || 'Bezier Curve',
+      createdAt: Date.now(), parentId: parentId as string | undefined,
+    });
+
+    return { success: true, data: { ...node, semantic: semanticType, pathData: d } };
+  }
+
+  private async createCustomShape(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { points, fillColor = '#E5E7EB', strokeColor, strokeWidth = 0, name, semantic, parentId, x, y } = params;
+
+    if (!Array.isArray(points) || points.length < 3) {
+      return { success: false, error: 'points must be an array with at least 3 points for a closed shape' };
+    }
+
+    const pts = points as Array<{ x: number; y: number; handleIn?: { x: number; y: number }; handleOut?: { x: number; y: number } }>;
+    const d = this.pointsToSvgPath(pts, true);
+
+    const fillVal = `fill:${this.hexToSvgColor(fillColor as string)};`;
+    const strokeVal = strokeColor ? `stroke:${this.hexToSvgColor(strokeColor as string)};stroke-width:${strokeWidth};` : '';
+    const style = fillVal + strokeVal + 'stroke-linecap:round;stroke-linejoin:round;';
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of pts) {
+      minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+    }
+
+    const svg = this.buildSvgString(d, style, (strokeWidth as number) + 2, { minX, minY, maxX, maxY });
+
+    const node = await this.primitives.createFromSvg({
+      svg, name: (name as string) || 'Custom Shape', parentId: parentId as string | undefined,
+      x: x as number | undefined, y: y as number | undefined,
+    });
+
+    const semanticType = (semantic as string) || 'custom-shape';
+    this.registry.register({
+      nodeId: node.id, type: semanticType, name: (name as string) || 'Custom Shape',
+      createdAt: Date.now(), parentId: parentId as string | undefined,
+    });
+
+    return { success: true, data: { ...node, semantic: semanticType } };
+  }
+
+  private async traceImage(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { imageData, filePath, colors = 8, pathPrecision = 3, simplify = true, scale = 1, name, semantic, parentId, x, y } = params;
+
+    let ImageTracer: any;
+    let PNGReader: any;
+    try {
+      ImageTracer = (await import('imagetracerjs')).default;
+      PNGReader = (await import('imagetracerjs/nodecli/PNGReader.js')).default;
+    } catch {
+      return { success: false, error: 'imagetracerjs is not installed. Run: pnpm add imagetracerjs' };
+    }
+
+    if (!imageData && !filePath) {
+      return { success: false, error: 'Either imageData (base64) or filePath is required' };
+    }
+
+    let pngBytes: Buffer;
+    if (filePath) {
+      const fs = await import('fs');
+      pngBytes = fs.readFileSync(filePath as string);
+    } else {
+      pngBytes = Buffer.from(imageData as string, 'base64');
+    }
+
+    // 解析 PNG
+    const reader = new PNGReader(pngBytes);
+    const png = await new Promise<any>((resolve, reject) => {
+      reader.parse((err: any, png: any) => {
+        if (err) reject(err);
+        else resolve(png);
+      });
+    });
+
+    const imgd = { width: png.width, height: png.height, data: png.pixels };
+
+    // 追踪为 SVG
+    const ltres = 1 / (pathPrecision as number);
+    const qtres = 1 / (pathPrecision as number);
+    const svgStr = ImageTracer.imagedataToSVG(imgd, {
+      numberofcolors: colors as number,
+      pathomit: simplify ? 3 : 0,
+      ltres,
+      qtres,
+      scale: scale as number,
+      strokewidth: 0,
+      linefilter: true,
+      roundcoords: 1,
+      viewbox: true,
+    });
+
+    // 导入到 Figma
+    const node = await this.primitives.createFromSvg({
+      svg: svgStr,
+      name: (name as string) || 'Traced Image',
+      parentId: parentId as string | undefined,
+      x: x as number | undefined,
+      y: y as number | undefined,
+    });
+
+    const semanticType = (semantic as string) || 'traced-image';
+    this.registry.register({
+      nodeId: node.id, type: semanticType, name: (name as string) || 'Traced Image',
+      createdAt: Date.now(), parentId: parentId as string | undefined,
+      metadata: { colors, pathPrecision, scale, originalWidth: png.width, originalHeight: png.height },
+    });
+
+    return { success: true, data: { ...node, semantic: semanticType, originalSize: { width: png.width, height: png.height } } };
   }
 
   private async createImage(params: Record<string, unknown>): Promise<SemanticResult> {
@@ -1680,12 +2604,17 @@ export class SemanticTools {
   private async createHeader(params: Record<string, unknown>): Promise<SemanticResult> {
     const { name, title, subtitle, actions, width, fill, parentId } = params;
 
+    const x = params.x as number | undefined;
+    const y = params.y as number | undefined;
+
     const header = await this.primitives.createNode({
       type: 'FRAME',
       name: name as string,
       parentId: parentId as string | undefined,
       width: (width as number) || 800,
       fills: parseFills((fill as string) || '#FFFFFF'),
+      x,
+      y,
     });
 
     await this.primitives.setLayout({
@@ -2215,6 +3144,9 @@ export class SemanticTools {
   private async createHero(params: Record<string, unknown>): Promise<SemanticResult> {
     const { name, title, subtitle, cta, width, height, fill, parentId } = params;
 
+    const x = params.x as number | undefined;
+    const y = params.y as number | undefined;
+
     const hero = await this.primitives.createNode({
       type: 'FRAME',
       name: name as string,
@@ -2222,6 +3154,8 @@ export class SemanticTools {
       width: (width as number) || 800,
       height: (height as number) || 400,
       fills: parseFills((fill as string) || '#F9FAFB'),
+      x,
+      y,
     });
 
     await this.primitives.setLayout({
@@ -2454,7 +3388,16 @@ export class SemanticTools {
       nodeId: nodeId as string,
       properties: processedProps,
     });
-    return { success: true, data };
+    // 返回更新后的属性摘要（包含位置信息）
+    const result = data as Record<string, unknown> | undefined;
+    return {
+      success: true,
+      data: {
+        ...result,
+        nodeId,
+        updatedKeys: Object.keys(processedProps),
+      },
+    };
   }
 
   private async updateBySemantic(params: Record<string, unknown>): Promise<SemanticResult> {
@@ -2476,6 +3419,59 @@ export class SemanticTools {
     return {
       success: true,
       data: { updated: results.length, results },
+    };
+  }
+
+  private async setLayout(params: Record<string, unknown>): Promise<SemanticResult> {
+    const nodeId = params.nodeId as string;
+
+    // 应用布局预设（显式参数优先）
+    let merged = { ...params };
+    if (params.layoutPreset && typeof params.layoutPreset === 'string') {
+      const preset = LAYOUT_PRESETS[params.layoutPreset];
+      if (preset) {
+        merged = { ...preset, ...params };  // 显式参数覆盖预设
+      }
+    }
+
+    const { nodeId: _id, layoutPreset: _preset, direction, paddingLeft, paddingRight, paddingTop, paddingBottom, itemSpacing, counterAxisAlignItems, primaryAxisAlignItems, layoutWrap, counterAxisSpacing, layoutSizingHorizontal, layoutSizingVertical, layoutGrow, layoutAlign } = merged;
+
+    await this.primitives.setLayout({
+      nodeId,
+      direction: direction as 'NONE' | 'HORIZONTAL' | 'VERTICAL' | undefined,
+      counterAxisAlignItems: counterAxisAlignItems as 'MIN' | 'CENTER' | 'MAX' | undefined,
+      primaryAxisAlignItems: primaryAxisAlignItems as 'MIN' | 'CENTER' | 'MAX' | 'SPACE_BETWEEN' | undefined,
+      paddingLeft: paddingLeft as number | undefined,
+      paddingRight: paddingRight as number | undefined,
+      paddingTop: paddingTop as number | undefined,
+      paddingBottom: paddingBottom as number | undefined,
+      itemSpacing: itemSpacing as number | undefined,
+      layoutWrap: layoutWrap as 'NO_WRAP' | 'WRAP' | undefined,
+      counterAxisSpacing: counterAxisSpacing as number | undefined,
+      layoutSizingHorizontal: layoutSizingHorizontal as 'FIXED' | 'HUG' | 'FILL' | undefined,
+      layoutSizingVertical: layoutSizingVertical as 'FIXED' | 'HUG' | 'FILL' | undefined,
+      layoutGrow: layoutGrow as number | undefined,
+      layoutAlign: layoutAlign as 'MIN' | 'CENTER' | 'MAX' | 'STRETCH' | undefined,
+    });
+
+    const appliedPreset = params.layoutPreset ? ` (preset: ${params.layoutPreset})` : '';
+    return { success: true, data: { updated: true, nodeId, message: `Layout updated for ${nodeId}${appliedPreset}` } };
+  }
+
+  private async setPosition(params: Record<string, unknown>): Promise<SemanticResult> {
+    const { nodeId, x, y } = params;
+    const properties: Record<string, unknown> = {};
+    if (x !== undefined) properties.x = x;
+    if (y !== undefined) properties.y = y;
+
+    await this.primitives.setProperties({
+      nodeId: nodeId as string,
+      properties,
+    });
+
+    return {
+      success: true,
+      data: { nodeId, x: x ?? 'unchanged', y: y ?? 'unchanged' },
     };
   }
 
@@ -2651,9 +3647,44 @@ export class SemanticTools {
     }
 
     const allSuccess = results.every(r => r.result.success);
+
+    // 收集成功创建的节点信息并获取结构摘要
+    const createdNodes: Array<{ id: string; name: string; type: string; childCount: number }> = [];
+    for (const r of results) {
+      if (r.result.success && r.result.data && typeof r.result.data === 'object') {
+        const data = r.result.data as Record<string, unknown>;
+        if (data.id && typeof data.id === 'string') {
+          try {
+            const tree = await this.primitives.getNodeTree({ nodeId: data.id as string, depth: 1 }) as Record<string, unknown>;
+            createdNodes.push({
+              id: data.id as string,
+              name: (tree.name as string) || (data.name as string) || 'unknown',
+              type: (tree.type as string) || (data.type as string) || 'unknown',
+              childCount: Array.isArray(tree.children) ? tree.children.length : 0,
+            });
+          } catch {
+            createdNodes.push({
+              id: data.id as string,
+              name: (data.name as string) || 'unknown',
+              type: (data.type as string) || 'unknown',
+              childCount: 0,
+            });
+          }
+        }
+      }
+    }
+
     return {
       success: allSuccess,
-      data: { results, executed: results.length, total: commands.length, rolledBack: false },
+      data: {
+        results,
+        summary: {
+          totalCommands: commands.length,
+          succeeded: results.filter(r => r.result.success).length,
+          failed: results.filter(r => !r.result.success).length,
+          createdNodes,
+        },
+      },
     };
   }
 
@@ -2942,5 +3973,371 @@ export class SemanticTools {
 
     this.templateRegistry.register({ name, description, tools, parameters });
     return { success: true, data: { name, description, toolCount: tools.length } };
+  }
+
+  // ─── Layout Calculation Tools ──────────────────────────────────
+
+  private calculateLayout(params: Record<string, unknown>): SemanticResult {
+    const children = params.children as Array<{ width: number; height: number }>;
+    const direction = (params.direction as string) || 'VERTICAL';
+    const layoutWrap = (params.layoutWrap as string) || 'NO_WRAP';
+    const maxWidth = params.maxWidth as number | undefined;
+    const itemSpacing = (params.itemSpacing as number) || 0;
+    const counterAxisSpacing = (params.counterAxisSpacing as number) || 0;
+
+    // Resolve padding
+    const pt = (params.paddingTop as number) ?? (params.padding as number) ?? 0;
+    const pb = (params.paddingBottom as number) ?? (params.padding as number) ?? 0;
+    const pl = (params.paddingLeft as number) ?? (params.padding as number) ?? 0;
+    const pr = (params.paddingRight as number) ?? (params.padding as number) ?? 0;
+
+    if (!children || children.length === 0) {
+      return { success: true, data: { width: pl + pr, height: pt + pb, rows: 0, columns: 0, childCount: 0, layout: [] } };
+    }
+
+    const layout: Array<{ index: number; x: number; y: number; width: number; height: number }> = [];
+
+    if (layoutWrap === 'WRAP') {
+      // ─── WRAP mode ───
+      // maxWidth 是容器总宽，内容区 = maxWidth - paddingLeft - paddingRight
+      const effectiveMaxWidth = (maxWidth ?? Infinity) - pl - pr;
+      const rows: Array<Array<{ index: number; width: number; height: number }>> = [[]];
+      let currentRowWidth = 0;
+      let currentRowIdx = 0;
+      let hasOverflow = false;
+
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+
+        // Check if this child needs a new row (before calculating neededWidth for current row)
+        const needsNewRow = rows[currentRowIdx].length > 0
+          && currentRowWidth + child.width + itemSpacing > effectiveMaxWidth;
+
+        if (needsNewRow) {
+          // Start new row
+          currentRowIdx++;
+          rows.push([]);
+          currentRowWidth = 0;
+        }
+
+        // First item in row: no spacing; subsequent items: add itemSpacing
+        const neededWidth = rows[currentRowIdx].length === 0
+          ? child.width
+          : child.width + itemSpacing;
+
+        // Flag overflow: child alone exceeds content area width
+        if (child.width > effectiveMaxWidth) {
+          hasOverflow = true;
+        }
+
+        rows[currentRowIdx].push({ index: i, width: child.width, height: child.height });
+        currentRowWidth += neededWidth;
+      }
+
+      // Calculate layout positions
+      let yOffset = pt;
+      for (let r = 0; r < rows.length; r++) {
+        const row = rows[r];
+        let xOffset = pl;
+        const rowMaxHeight = Math.max(...row.map(c => c.height));
+
+        for (const cell of row) {
+          layout.push({
+            index: cell.index,
+            x: xOffset,
+            y: yOffset,
+            width: cell.width,
+            height: cell.height,
+          });
+          xOffset += cell.width + itemSpacing;
+        }
+        yOffset += rowMaxHeight + (r < rows.length - 1 ? counterAxisSpacing : 0);
+      }
+      yOffset += pb;
+
+      const totalWidth = Math.max(
+        ...rows.map(row => row.reduce((sum, c, i) => sum + c.width + (i > 0 ? itemSpacing : 0), 0))
+      ) + pl + pr;
+      const totalHeight = yOffset;
+
+      return {
+        success: true,
+        data: {
+          width: Math.ceil(totalWidth),
+          height: Math.ceil(totalHeight),
+          rows: rows.length,
+          columns: Math.max(...rows.map(r => r.length)),
+          childCount: children.length,
+          ...(hasOverflow && { overflow: true, overflowMessage: '存在子元素宽度超出容器内容区，将被裁切' }),
+          layout,
+        },
+      };
+    }
+
+    // ─── NO_WRAP mode ───
+    if (direction === 'VERTICAL') {
+      let totalHeight = pt;
+      let maxWidthChild = 0;
+
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        layout.push({
+          index: i,
+          x: pl,
+          y: totalHeight,
+          width: child.width,
+          height: child.height,
+        });
+        maxWidthChild = Math.max(maxWidthChild, child.width);
+        totalHeight += child.height + (i < children.length - 1 ? itemSpacing : 0);
+      }
+      totalHeight += pb;
+
+      return {
+        success: true,
+        data: {
+          width: Math.ceil(maxWidthChild + pl + pr),
+          height: Math.ceil(totalHeight),
+          columns: 1,
+          rows: children.length,
+          childCount: children.length,
+          layout,
+        },
+      };
+    } else {
+      // HORIZONTAL
+      let totalWidth = pl;
+      let maxHeightChild = 0;
+
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        layout.push({
+          index: i,
+          x: totalWidth,
+          y: pt,
+          width: child.width,
+          height: child.height,
+        });
+        maxHeightChild = Math.max(maxHeightChild, child.height);
+        totalWidth += child.width + (i < children.length - 1 ? itemSpacing : 0);
+      }
+      totalWidth += pr;
+
+      return {
+        success: true,
+        data: {
+          width: Math.ceil(totalWidth),
+          height: Math.ceil(maxHeightChild + pt + pb),
+          columns: children.length,
+          rows: 1,
+          childCount: children.length,
+          layout,
+        },
+      };
+    }
+  }
+
+  // ─── Layout Validation Tools ──────────────────────────────────
+
+  private async fitToChildren(params: Record<string, unknown>): Promise<SemanticResult> {
+    const nodeId = params.nodeId as string;
+    const padding = (params.padding as number) ?? 0;
+    const shrink = (params.shrink as boolean) ?? false;
+    const maxWidth = params.maxWidth as number | undefined;
+    const maxHeight = params.maxHeight as number | undefined;
+
+    // Get current node info to get original width/height for shrink check
+    const currentInfo = await this.primitives.getNodeProperties({
+      nodeId,
+      properties: ['width', 'height'],
+    }) as Record<string, unknown>;
+    // getNodeProperties returns { id, type, width, height, ... } directly
+    const currentWidth = (currentInfo?.width as number) ?? 0;
+    const currentHeight = (currentInfo?.height as number) ?? 0;
+
+    // Get all children with their bounds
+    const tree = await this.primitives.getNodeTree({ nodeId, depth: 1 }) as Record<string, unknown>;
+    const children = tree?.children as Array<Record<string, unknown>> | undefined;
+
+    if (!children || children.length === 0) {
+      return { success: true, data: { nodeId, width: currentWidth, height: currentHeight, message: '无子元素，无需调整' } };
+    }
+
+    // Get bounds for each child
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let hasError = false;
+    const errors: string[] = [];
+
+    for (const child of children) {
+      try {
+        const childProps = await this.primitives.getNodeProperties({
+          nodeId: child.id as string,
+          properties: ['x', 'y', 'width', 'height'],
+        }) as Record<string, unknown>;
+        // getNodeProperties returns { id, type, x, y, width, height, ... } directly
+        if (!childProps) continue;
+
+        const x = (childProps.x as number) ?? 0;
+        const y = (childProps.y as number) ?? 0;
+        const w = (childProps.width as number) ?? 0;
+        const h = (childProps.height as number) ?? 0;
+
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x + w);
+        maxY = Math.max(maxY, y + h);
+      } catch (e) {
+        errors.push(`Failed to read child ${child.id}: ${e}`);
+        hasError = true;
+      }
+    }
+
+    if (minX === Infinity) {
+      return { success: false, error: '无法读取任何子元素的边界信息' };
+    }
+
+    // Calculate required size
+    let requiredWidth = maxX - minX + padding * 2;
+    let requiredHeight = maxY - minY + padding * 2;
+
+    // Apply shrink check
+    if (!shrink) {
+      requiredWidth = Math.max(requiredWidth, currentWidth);
+      requiredHeight = Math.max(requiredHeight, currentHeight);
+    }
+
+    // Apply max constraints
+    if (maxWidth !== undefined) requiredWidth = Math.min(requiredWidth, maxWidth);
+    if (maxHeight !== undefined) requiredHeight = Math.min(requiredHeight, maxHeight);
+
+    // Round up to avoid sub-pixel issues
+    requiredWidth = Math.ceil(requiredWidth);
+    requiredHeight = Math.ceil(requiredHeight);
+
+    // Resize the container
+    await this.primitives.resizeNode({ nodeId, width: requiredWidth, height: requiredHeight });
+
+    // If padding > 0 and there's offset (minX or minY > 0), we might need to adjust children
+    // For now, just resize the container
+    return {
+      success: true,
+      data: {
+        nodeId,
+        width: requiredWidth,
+        height: requiredHeight,
+        previousWidth: currentWidth,
+        previousHeight: currentHeight,
+        childCount: children.length,
+        ...(hasError && { errors }),
+      },
+    };
+  }
+
+  private async checkBounds(params: Record<string, unknown>): Promise<SemanticResult> {
+    const nodeId = params.nodeId as string;
+    const autoFix = (params.autoFix as boolean) ?? false;
+
+    // Get container properties
+    const containerProps = await this.primitives.getNodeProperties({
+      nodeId,
+      properties: ['width', 'height', 'clipsContent'],
+    }) as Record<string, unknown>;
+    // getNodeProperties returns { id, type, width, height, clipsContent, ... } directly
+    if (!containerProps) {
+      return { success: false, error: `无法读取容器属性: ${nodeId}` };
+    }
+
+    const containerWidth = (containerProps.width as number) ?? 0;
+    const containerHeight = (containerProps.height as number) ?? 0;
+    const clipsContent = (containerProps.clipsContent as boolean) ?? false;
+
+    // Get children
+    const tree = await this.primitives.getNodeTree({ nodeId, depth: 1 }) as Record<string, unknown>;
+    const children = tree?.children as Array<Record<string, unknown>> | undefined;
+
+    if (!children || children.length === 0) {
+      return { success: true, data: { fits: true, childCount: 0, message: '无子元素' } };
+    }
+
+    // Check each child against container bounds
+    const violations: Array<{ childId: string; name: string; overflow: { left: number; top: number; right: number; bottom: number } }> = [];
+    let maxOverflowWidth = containerWidth;
+    let maxOverflowHeight = containerHeight;
+
+    for (const child of children) {
+      try {
+        const childProps = await this.primitives.getNodeProperties({
+          nodeId: child.id as string,
+          properties: ['x', 'y', 'width', 'height', 'name'],
+        }) as Record<string, unknown>;
+        // getNodeProperties returns { id, type, x, y, width, height, name, ... } directly
+        if (!childProps) continue;
+
+        const x = (childProps.x as number) ?? 0;
+        const y = (childProps.y as number) ?? 0;
+        const w = (childProps.width as number) ?? 0;
+        const h = (childProps.height as number) ?? 0;
+        const name = (childProps.name as string) ?? child.id;
+
+        const overflowLeft = -x;
+        const overflowTop = -y;
+        const overflowRight = (x + w) - containerWidth;
+        const overflowBottom = (y + h) - containerHeight;
+
+        if (overflowLeft > 0 || overflowTop > 0 || overflowRight > 0 || overflowBottom > 0) {
+          violations.push({
+            childId: child.id as string,
+            name,
+            overflow: {
+              left: Math.max(0, overflowLeft),
+              top: Math.max(0, overflowTop),
+              right: Math.max(0, overflowRight),
+              bottom: Math.max(0, overflowBottom),
+            },
+          });
+
+          // Calculate needed container size
+          maxOverflowWidth = Math.max(maxOverflowWidth, x + w);
+          maxOverflowHeight = Math.max(maxOverflowHeight, y + h);
+        }
+      } catch {
+        // Skip unreadable children
+      }
+    }
+
+    const fits = violations.length === 0;
+    const result: Record<string, unknown> = {
+      fits,
+      containerWidth,
+      containerHeight,
+      clipsContent,
+      childCount: children.length,
+      violationCount: violations.length,
+    };
+
+    if (!fits) {
+      result.violations = violations;
+      result.requiredWidth = Math.ceil(maxOverflowWidth);
+      result.requiredHeight = Math.ceil(maxOverflowHeight);
+
+      if (clipsContent) {
+        result.warning = `${violations.length} 个子元素超出容器边界且 clipsContent=true，内容已被裁切！`;
+      } else {
+        result.warning = `${violations.length} 个子元素超出容器边界（clipsContent=false，内容可见但可能与其他元素重叠）`;
+      }
+
+      if (autoFix) {
+        await this.primitives.resizeNode({
+          nodeId,
+          width: Math.ceil(maxOverflowWidth),
+          height: Math.ceil(maxOverflowHeight),
+        });
+        result.fixed = true;
+        result.newWidth = Math.ceil(maxOverflowWidth);
+        result.newHeight = Math.ceil(maxOverflowHeight);
+      }
+    }
+
+    return { success: true, data: result };
   }
 }

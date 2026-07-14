@@ -5,6 +5,8 @@
 export interface BridgeConfig {
   /** WebSocket 服务端口 */
   wsPort: number;
+  /** HTTP REST API 端口 */
+  httpPort: number;
   /** 命令超时时间（毫秒） */
   commandTimeout: number;
   /** 日志级别 */
@@ -13,6 +15,7 @@ export interface BridgeConfig {
 
 const config: BridgeConfig = {
   wsPort: parseInt(process.env.BRIDGE_WS_PORT || '37849', 10),
+  httpPort: parseInt(process.env.BRIDGE_HTTP_PORT || '37850', 10),
   commandTimeout: parseInt(process.env.BRIDGE_COMMAND_TIMEOUT || '30000', 10),
   logLevel: (process.env.BRIDGE_LOG_LEVEL as BridgeConfig['logLevel']) || 'info',
 };

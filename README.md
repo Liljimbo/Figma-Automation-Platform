@@ -15,7 +15,7 @@
 | 官方 API 限流 | 120 req/min，复杂文件频繁 429 | Plugin API，**无调用限制** |
 | 只能读不能写 | REST API 单向 | 完整的创建 / 修改 / 删除 |
 | 每次调用走网络 | 高延迟、易超时 | WebSocket 本地通信，**毫秒级响应** |
-| 手动设计效率低 | 重复操作、无法批量 | AI 一次指令，**52 个语义工具自动编排** |
+| 手动设计效率低 | 重复操作、无法批量 | AI 一次指令，**64 个语义工具自动编排** |
 
 ## 架构
 
@@ -38,7 +38,7 @@ flowchart TD
 ## 特性一览
 
 <details>
-<summary><b>🎨 设计创建</b> — 19 个语义工具</summary>
+<summary><b>🎨 设计创建</b> — 26 个语义工具</summary>
 
 一次调用即可生成完整的 UI 组件，无需手动拼装底层 API。
 
@@ -47,6 +47,7 @@ flowchart TD
 | 基础 | `create_container` · `create_text` |
 | UI 组件 | `create_button` · `create_card` · `create_input` · `create_avatar` · `create_icon` · `create_image` · `create_divider` · `create_badge` |
 | 布局 | `create_header` · `create_sidebar` · `create_grid` · `create_list` · `create_form` · `create_modal` · `create_toast` · `create_navigation` · `create_hero` |
+| 曲线与矢量 | `import_svg` · `create_path` · `create_arc` · `create_wave` · `create_bezier_curve` · `create_custom_shape` · `trace_image` |
 
 </details>
 
@@ -78,15 +79,17 @@ flowchart TD
 </details>
 
 <details>
-<summary><b>🏗️ 高级能力</b> — 设计 Token · 变体 · Diff · 模板</summary>
+<summary><b>🏗️ 高级能力</b> — 设计 Token · 变体 · Diff · 模板 · 布局计算</summary>
 
 | 能力 | 工具 | 说明 |
 |------|------|------|
+| Layout | `set_layout` · `set_position` | Auto Layout 配置与绝对定位（含 6 种预设：centered, stretch-fill, hug-content, sidebar-left, stack-vertical, grid-cell） |
+| Layout 计算 | `calculate_layout` · `fit_to_children` · `check_bounds` | 纯计算（无 Figma 交互）+ 容器自适应 + 边界校验（可自动修复） |
 | Variables | `create_variable_collection` · `create_variable` · `get_variables` · `update_variable` · `delete_variable` | 设计 Token CRUD，支持 light/dark 多模式 |
 | Variants | `create_component_set` · `create_variant_instance` · `update_variant` · `get_component_sets` | 组件变体的创建与实例化 |
 | Diff Engine | `diff_snapshot` · `diff_apply` | 增量更新，只发送变化的属性 |
 | Templates | `create_from_template` · `list_templates` · `save_as_template` | 预定义模板 + 参数化生成 |
-| Batch | `batch_execute` | 批量执行，失败自动回滚 |
+| Batch | `batch_execute` | 批量执行，失败可选回滚 |
 | Events | `start_event_listener` · `stop_event_listener` · `get_pending_events` | 实时监听文档变化 |
 | Export | `export_node` · `export_by_semantic` | 导出为 PNG / JPG / SVG / PDF |
 
@@ -144,6 +147,12 @@ Claude: (调用 create_form → create_button → create_input，Figma 中实时
 
 > **⚠️ 不要手动启动 Bridge Server。** Claude Code 通过 `.mcp.json` 自动管理其生命周期，手动启动会导致端口冲突。
 
+### 提升体验的小技巧
+
+1. **设置快捷键**：`Figma → Settings → Keyboard shortcuts → Plugins → Figma Forge`，绑定一个顺手的组合键（如 `Ctrl+Shift+F`），每次打开 Figma 一键启动。
+2. **保持面板常驻**：Plugin 面板启动后不要关闭，WebSocket 连接会一直保持。只要 Figma 不退出，整个会话期间只需启动一次。
+3. **自动重连**：如果 Bridge Server 重启，Plugin 会自动尝试重连（最多 20 次，3 秒间隔），无需手动操作。
+
 ---
 
 ## 工作区布局
@@ -156,7 +165,7 @@ flowchart LR
         A["Claude Code<br/>输入设计需求<br/>AI 调用 Semantic Tools"]
     end
     subgraph APP["App Window"]
-        B["Figma Desktop<br/>设计稿实时生成<br/>52 种组件可用"]
+        B["Figma Desktop<br/>设计稿实时生成<br/>64 种组件可用"]
     end
     subgraph EMBED["Figma 内嵌"]
         C["Plugin Panel<br/>显示连接状态<br/>执行日志"]
@@ -175,7 +184,6 @@ Bridge Server 由 Claude Code 在后台自动启动，无需额外操作。
 ```bash
 pnpm build                  # 构建所有包
 pnpm dev:bridge             # 单独调试 Bridge（⚠️ 不要和 Claude Code 同时使用）
-node test-e2e.mjs           # 运行端到端测试
 ```
 
 ## 技术栈
@@ -183,7 +191,7 @@ node test-e2e.mjs           # 运行端到端测试
 | 层级 | 技术 |
 |------|------|
 | Plugin | TypeScript · Figma Plugin API |
-| Bridge | TypeScript · Node.js · `@modelcontextprotocol/sdk` · WebSocket (`ws`) |
+| Bridge | TypeScript · Node.js · `@modelcontextprotocol/sdk` · WebSocket (`ws`) · Zod · imagetracerjs |
 | 构建 | esbuild + tsc · pnpm monorepo |
 
 ## REST API
