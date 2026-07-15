@@ -333,8 +333,8 @@ figma.ui.onmessage = async (msg: { id: string; cmd: string; params: Record<strin
 };
 
 figma.showUI(__html__, {
-  width: 400,
-  height: 200,
+  width: 320,
+  height: 160,
   title: 'Figma Forge',
 });
 
