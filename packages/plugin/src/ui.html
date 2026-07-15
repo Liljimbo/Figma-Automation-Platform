@@ -51,7 +51,6 @@
     .brand-icon {
       width: 16px;
       height: 16px;
-      background: var(--accent);
       border-radius: 3px;
       display: flex;
       align-items: center;
@@ -60,13 +59,8 @@
     }
 
     .brand-icon svg {
-      width: 10px;
-      height: 10px;
-      fill: none;
-      stroke: #fff;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
+      width: 16px;
+      height: 16px;
     }
 
     .brand-name {
@@ -288,13 +282,22 @@
   <div class="header">
     <div class="header-left">
       <div class="brand-icon">
-        <svg viewBox="0 0 24 24">
-          <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
-          <line x1="12" y1="22" x2="12" y2="15.5" />
-          <polyline points="22 8.5 12 15.5 2 8.5" />
+        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M156 0H44C19.6995 0 0 19.6995 0 44V156C0 180.301 19.6995 200 44 200H156C180.301 200 200 180.301 200 156V44C200 19.6995 180.301 0 156 0Z" fill="url(#brandGrad)"/>
+          <path d="M55 32H39C36.7909 32 35 33.7909 35 36V164C35 166.209 36.7909 168 39 168H55C57.2091 168 59 166.209 59 164V36C59 33.7909 57.2091 32 55 32Z" fill="white"/>
+          <path d="M136 32H39C36.7909 32 35 33.7909 35 36V52C35 54.2091 36.7909 56 39 56H136C138.209 56 140 54.2091 140 52V36C140 33.7909 138.209 32 136 32Z" fill="white"/>
+          <path d="M113 78H39C36.7909 78 35 79.7909 35 82V94C35 96.2091 36.7909 98 39 98H113C115.209 98 117 96.2091 117 94V82C117 79.7909 115.209 78 113 78Z" fill="white"/>
+          <path opacity="0.85" d="M157.132 129.232L150.768 122.868C149.791 121.892 148.209 121.892 147.232 122.868L140.868 129.232C139.892 130.209 139.892 131.791 140.868 132.768L147.232 139.132C148.209 140.108 149.791 140.108 150.768 139.132L157.132 132.768C158.108 131.791 158.108 130.209 157.132 129.232Z" fill="white"/>
+          <defs>
+            <linearGradient id="brandGrad" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#0D99FF"/>
+              <stop offset="0.5" stop-color="#6C5CE7"/>
+              <stop offset="1" stop-color="#B388FF"/>
+            </linearGradient>
+          </defs>
         </svg>
       </div>
-      <span class="brand-name">Forge</span>
+      <span class="brand-name">Figma Forge</span>
     </div>
     <div class="status-pill disconnected" id="statusPill">
       <span class="status-dot"></span>

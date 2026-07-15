@@ -1,6 +1,19 @@
 # Figma Forge
 
-> AI 驱动的 Figma 设计引擎 — 让 Claude Code 直接在 Figma 中创造设计稿。
+<p align="center">
+  <img src="packages/plugin/assets/icons/logo-horizontal.svg" alt="Figma Forge Logo" width="280" />
+</p>
+
+<p align="center">
+  <strong>AI 驱动的 Figma 设计引擎</strong> — 让 Claude Code 直接在 Figma 中创造设计稿。
+</p>
+
+<p align="center">
+  <a href="#"><img src="https://img.shields.io/badge/status-active-brightgreen" alt="Status"></a>
+  <a href="#"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Figma-Plugin-purple" alt="Figma Plugin"></a>
+  <a href="#"><img src="https://img.shields.io/badge/MCP-Compatible-orange" alt="MCP Compatible"></a>
+</p>
 
 <p align="center">
   <code>Claude Code</code> → <code>MCP</code> → <code>Bridge Server</code> → <code>WebSocket</code> → <code>Figma Plugin</code>
