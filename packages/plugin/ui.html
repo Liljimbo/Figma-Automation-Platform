@@ -3,84 +3,447 @@
 <head>
   <meta charset="utf-8">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: Inter, system-ui, -apple-system, sans-serif;
-      font-size: 12px;
-      color: #333;
-      padding: 12px;
-      background: #fff;
+    :root {
+      --bg: #1e1e1e;
+      --surface: #2c2c2c;
+      --surface-hover: #383838;
+      --border: #3e3e3e;
+      --text: #e5e5e5;
+      --text-secondary: #808080;
+      --text-dim: #595959;
+      --accent: #0d99ff;
+      --accent-dim: rgba(13, 153, 255, 0.15);
+      --success: #1db954;
+      --success-dim: rgba(29, 185, 84, 0.12);
+      --error: #f24822;
+      --error-dim: rgba(242, 72, 34, 0.12);
+      --command: #b388ff;
+      --font-sans: Inter, system-ui, -apple-system, sans-serif;
+      --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Consolas', monospace;
     }
-    .status {
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-sans);
+      font-size: 11px;
+      color: var(--text);
+      background: var(--bg);
+      padding: 8px 10px;
+      line-height: 1.4;
+      overflow: hidden;
+    }
+
+    /* ── Header Row ──────────────────────────────── */
+    .header {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-      padding: 8px 12px;
-      border-radius: 6px;
-      background: #f5f5f5;
+      justify-content: space-between;
+      margin-bottom: 6px;
     }
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #ccc;
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand-icon {
+      width: 16px;
+      height: 16px;
+      background: var(--accent);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       flex-shrink: 0;
     }
-    .status-dot.connected { background: #1db954; }
-    .status-dot.error { background: #e74c3c; }
-    .status-text { color: #666; }
-    .log {
-      max-height: 120px;
-      overflow-y: auto;
-      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-      font-size: 11px;
-      color: #666;
+
+    .brand-icon svg {
+      width: 10px;
+      height: 10px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .brand-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px 2px 6px;
+      border-radius: 100px;
+      font-size: 10px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+
+    .status-pill.disconnected {
+      background: var(--error-dim);
+      color: var(--error);
+    }
+
+    .status-pill.connected {
+      background: var(--success-dim);
+      color: var(--success);
+    }
+
+    .status-pill.connecting {
+      background: rgba(255, 205, 41, 0.12);
+      color: #ffcd29;
+    }
+
+    .status-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .status-pill.connected .status-dot {
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
+      50% { opacity: 0.6; box-shadow: 0 0 5px 1px currentColor; }
+    }
+
+    /* ── Stats Row ───────────────────────────────── */
+    .stats {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+
+    .stat {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 6px;
+      text-align: center;
+      transition: background 0.15s ease;
+    }
+
+    .stat:hover { background: var(--surface-hover); }
+
+    .stat-val {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-val.accent { color: var(--accent); }
+    .stat-val.success { color: var(--success); }
+
+    .stat-lbl {
+      font-size: 9px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    /* ── Log Toggle ──────────────────────────────── */
+    .log-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3px 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      user-select: none;
+    }
+
+    .log-toggle:hover { background: var(--surface-hover); }
+
+    .log-toggle-left {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .log-toggle-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .log-count {
+      font-size: 9px;
+      color: var(--text-dim);
+      background: var(--border);
+      padding: 0 4px;
+      border-radius: 3px;
       line-height: 1.6;
     }
-    .log-entry { padding: 2px 0; }
-    .log-entry.error { color: #e74c3c; }
-    .log-entry.success { color: #1db954; }
-    .log-entry.info { color: #3498db; }
+
+    .log-toggle-icon {
+      font-size: 8px;
+      color: var(--text-dim);
+      transition: transform 0.2s ease;
+    }
+
+    .log-toggle.open .log-toggle-icon {
+      transform: rotate(180deg);
+    }
+
+    .log-clear {
+      font-size: 9px;
+      color: var(--text-dim);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: var(--font-sans);
+      transition: all 0.15s ease;
+    }
+
+    .log-clear:hover {
+      color: var(--text);
+      background: var(--surface-hover);
+    }
+
+    /* ── Log Area ────────────────────────────────── */
+    .log-wrap {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.25s ease;
+    }
+
+    .log-wrap.open {
+      max-height: 150px;
+    }
+
+    .log {
+      max-height: 130px;
+      overflow-y: auto;
+      margin-top: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .log::-webkit-scrollbar { width: 3px; }
+    .log::-webkit-scrollbar-track { background: transparent; }
+    .log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .log-entry {
+      padding: 2px 8px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: flex-start;
+      gap: 5px;
+      line-height: 1.5;
+      animation: fadeIn 0.15s ease;
+    }
+
+    .log-entry:hover { background: var(--surface-hover); }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .log-icon {
+      flex-shrink: 0;
+      width: 12px;
+      text-align: center;
+      font-size: 9px;
+      line-height: 1.5;
+    }
+
+    .log-entry.success .log-icon { color: var(--success); }
+    .log-entry.error .log-icon { color: var(--error); }
+    .log-entry.info .log-icon { color: var(--accent); }
+    .log-entry.command .log-icon { color: var(--command); }
+
+    .log-time { color: var(--text-dim); flex-shrink: 0; }
+    .log-msg { flex: 1; word-break: break-word; }
+    .log-msg .hl { color: var(--command); font-weight: 500; }
   </style>
 </head>
 <body>
-  <div class="status">
-    <div class="status-dot" id="statusDot"></div>
-    <span class="status-text" id="statusText">Connecting...</span>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24">
+          <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
+          <line x1="12" y1="22" x2="12" y2="15.5" />
+          <polyline points="22 8.5 12 15.5 2 8.5" />
+        </svg>
+      </div>
+      <span class="brand-name">Forge</span>
+    </div>
+    <div class="status-pill disconnected" id="statusPill">
+      <span class="status-dot"></span>
+      <span id="statusText">Connecting</span>
+    </div>
   </div>
-  <div class="log" id="log"></div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-val accent" id="statCommands">0</div>
+      <div class="stat-lbl">Cmds</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="statNodes">0</div>
+      <div class="stat-lbl">Nodes</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val success" id="statUptime">0s</div>
+      <div class="stat-lbl">Up</div>
+    </div>
+  </div>
+
+  <!-- Log Toggle -->
+  <div class="log-toggle" id="logToggle" onclick="toggleLog()">
+    <div class="log-toggle-left">
+      <span class="log-toggle-label">Activity</span>
+      <span class="log-count" id="logCount">0</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <button class="log-clear" onclick="event.stopPropagation();clearLog()">Clear</button>
+      <span class="log-toggle-icon">▾</span>
+    </div>
+  </div>
+
+  <!-- Log Area (collapsed by default) -->
+  <div class="log-wrap" id="logWrap">
+    <div class="log" id="log"></div>
+  </div>
 
   <script>
+    // ── Constants ──────────────────────────────────
     const BRIDGE_PORT = 37849;
     const RECONNECT_INTERVAL = 3000;
     const MAX_RECONNECT_ATTEMPTS = 20;
 
+    // ── State ──────────────────────────────────────
     let ws = null;
     let reconnectAttempts = 0;
     let reconnectTimer = null;
+    let commandCount = 0;
+    let nodeCount = 0;
+    let logEntryCount = 0;
+    let startTime = null;
+    let uptimeTimer = null;
 
-    const statusDot = document.getElementById('statusDot');
+    // ── DOM ────────────────────────────────────────
+    const statusPill = document.getElementById('statusPill');
     const statusText = document.getElementById('statusText');
     const logEl = document.getElementById('log');
+    const logWrap = document.getElementById('logWrap');
+    const logToggle = document.getElementById('logToggle');
+    const logCountEl = document.getElementById('logCount');
+    const statCommands = document.getElementById('statCommands');
+    const statNodes = document.getElementById('statNodes');
+    const statUptime = document.getElementById('statUptime');
 
-    function log(message, type = 'info') {
-      const entry = document.createElement('div');
-      entry.className = `log-entry ${type}`;
-      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-      logEl.appendChild(entry);
-      logEl.scrollTop = logEl.scrollHeight;
+    const ICONS = { success: '✓', error: '✗', info: '●', command: '▸' };
+
+    // ── Log Toggle ─────────────────────────────────
+    function toggleLog() {
+      logWrap.classList.toggle('open');
+      logToggle.classList.toggle('open');
     }
 
+    function clearLog() {
+      logEl.innerHTML = '';
+      logEntryCount = 0;
+      logCountEl.textContent = '0';
+    }
+
+    // ── Logging ────────────────────────────────────
+    function log(message, type = 'info') {
+      addLogEntry(type, escapeHtml(message));
+    }
+
+    function logCommand(toolName, duration) {
+      commandCount++;
+      statCommands.textContent = commandCount;
+      const msg = `<span class="hl">${escapeHtml(toolName)}</span>${duration ? ` <span style="color:var(--text-dim)">(${duration}ms)</span>` : ''}`;
+      addLogEntry('command', msg);
+    }
+
+    function addLogEntry(type, html) {
+      logEntryCount++;
+      logCountEl.textContent = logEntryCount > 99 ? '99+' : logEntryCount;
+
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      entry.innerHTML = `
+        <span class="log-icon">${ICONS[type] || ICONS.info}</span>
+        <span class="log-time">${time.slice(0, 5)}</span>
+        <span class="log-msg">${html}</span>
+      `;
+
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+
+      while (logEl.children.length > 80) {
+        logEl.removeChild(logEl.firstChild);
+      }
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    // ── Status ─────────────────────────────────────
     function setStatus(status, text) {
-      statusDot.className = `status-dot ${status}`;
+      statusPill.className = `status-pill ${status}`;
       statusText.textContent = text;
     }
 
+    // ── Uptime ─────────────────────────────────────
+    function startUptime() {
+      startTime = Date.now();
+      uptimeTimer = setInterval(updateUptime, 1000);
+    }
+
+    function stopUptime() {
+      if (uptimeTimer) clearInterval(uptimeTimer);
+      startTime = null;
+      statUptime.textContent = '0s';
+    }
+
+    function updateUptime() {
+      if (!startTime) return;
+      const s = Math.floor((Date.now() - startTime) / 1000);
+      statUptime.textContent = s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s/60)}m` : `${Math.floor(s/3600)}h`;
+    }
+
+    // ── WebSocket ──────────────────────────────────
     function connect() {
-      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-        return;
-      }
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+      setStatus('connecting', 'Connecting');
 
       try {
         ws = new WebSocket(`ws://localhost:${BRIDGE_PORT}`);
@@ -92,86 +455,58 @@
 
       ws.onopen = () => {
         reconnectAttempts = 0;
-        setStatus('connected', 'Connected to Bridge');
-        log('Connected to Bridge Server', 'success');
-
-        // 通知 Plugin 主线程
+        setStatus('connected', 'Connected');
+        log('Connected to Bridge', 'success');
+        startUptime();
         parent.postMessage({ pluginMessage: { type: 'ws-status', status: 'connected' } }, '*');
       };
 
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
-
           if (msg.type === 'command') {
-            // 转发命令到 Plugin 主线程
-            parent.postMessage({ pluginMessage: msg.payload }, '*');
+            const p = msg.payload;
+            if (p && p.tool) logCommand(p.tool, p.duration);
+            if (p && p.nodeId) { nodeCount++; statNodes.textContent = nodeCount; }
+            parent.postMessage({ pluginMessage: p }, '*');
           }
         } catch (err) {
-          log(`Message parse error: ${err.message}`, 'error');
+          log(`Parse error: ${err.message}`, 'error');
         }
       };
 
-      ws.onclose = (event) => {
-        setStatus('error', 'Disconnected');
-        log(`Disconnected (code: ${event.code})`, 'error');
-
-        // 通知 Plugin 主线程
+      ws.onclose = (e) => {
+        setStatus('disconnected', 'Disconnected');
+        log(`Disconnected (${e.code})`, 'error');
+        stopUptime();
         parent.postMessage({ pluginMessage: { type: 'ws-status', status: 'disconnected' } }, '*');
-
         scheduleReconnect();
       };
 
-      ws.onerror = () => {
-        setStatus('error', 'Connection error');
-      };
+      ws.onerror = () => setStatus('disconnected', 'Error');
     }
 
     function scheduleReconnect() {
-      if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-        log('Max reconnect attempts reached', 'error');
-        return;
-      }
-
+      if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) { log('Max retries reached', 'error'); return; }
       if (reconnectTimer) clearTimeout(reconnectTimer);
-
-      reconnectTimer = setTimeout(() => {
-        reconnectAttempts++;
-        log(`Reconnecting (attempt ${reconnectAttempts})...`);
-        connect();
-      }, RECONNECT_INTERVAL);
+      reconnectTimer = setTimeout(() => { reconnectAttempts++; log(`Retry ${reconnectAttempts}...`); connect(); }, RECONNECT_INTERVAL);
     }
 
-    // 接收 Plugin 主线程的消息
+    // ── Plugin Messages ────────────────────────────
     window.onmessage = (event) => {
       const msg = event.data.pluginMessage;
       if (!msg) return;
-
-      if (msg.type === 'result') {
-        // 将执行结果通过 WebSocket 发回 Bridge
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            type: 'result',
-            payload: msg.payload,
-          }));
-        }
-      } else if (msg.type === 'event') {
-        // 将事件通过 WebSocket 发送给 Bridge
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            type: 'event',
-            payload: msg.payload,
-          }));
-        }
+      if (msg.type === 'result' && ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'result', payload: msg.payload }));
+      } else if (msg.type === 'event' && ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'event', payload: msg.payload }));
       } else if (msg.type === 'init') {
-        log('Plugin initialized, connecting to Bridge...');
+        log('Plugin init, connecting...');
         connect();
-      } else if (msg.type === 'ws-status') {
-        // 忽略自身发出的状态消息
       }
     };
 
-    // 启动
+    // ── Start ──────────────────────────────────────
     connect();
   </script>
 </body>
