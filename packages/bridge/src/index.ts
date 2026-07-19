@@ -15,8 +15,7 @@ const eventQueue: PluginEvent[] = [];
 const MAX_EVENTS = 1000;
 
 async function main() {
-  console.log('=== Figma Forge Server v0.1.0 ===');
-  console.log('');
+  console.error('=== Figma Forge Server v0.1.0 ===');
 
   // 1. 创建命令路由器
   const commandRouter = new CommandRouter();
@@ -26,9 +25,9 @@ async function main() {
 
   wsServer.onStatus((status) => {
     if (status === 'connected') {
-      console.log('[Bridge] ✅ Plugin connected — ready to accept commands');
+      console.error('[Bridge] ✅ Plugin connected — ready to accept commands');
     } else {
-      console.log('[Bridge] ⚠️  Plugin disconnected — waiting for reconnection...');
+      console.error('[Bridge] ⚠️  Plugin disconnected — waiting for reconnection...');
     }
   });
 
@@ -52,11 +51,8 @@ async function main() {
 
   try {
     await mcpServer.start();
-    console.log('[Bridge] ✅ MCP Server started (stdio)');
-    console.log('');
-    console.log('[Bridge] Waiting for Claude Code to connect via MCP...');
-    console.log('[Bridge] Make sure Plugin is running in Figma');
-    console.log('');
+    console.error('[Bridge] ✅ MCP Server started (stdio)');
+    console.error('[Bridge] Waiting for Claude Code to connect via MCP...');
   } catch (err) {
     console.error('[Bridge] Failed to start MCP server:', err);
     process.exit(1);
@@ -67,8 +63,7 @@ async function main() {
 
   try {
     await httpServer.start();
-    console.log(`[Bridge] ✅ REST API started (http://localhost:${config.httpPort})`);
-    console.log('');
+    console.error(`[Bridge] ✅ REST API started (http://${config.host}:${config.httpPort})`);
   } catch (err) {
     console.error('[Bridge] Failed to start HTTP server:', err);
     // HTTP 失败不阻塞，MCP 仍可工作
@@ -76,13 +71,13 @@ async function main() {
 
   // 5. 优雅退出
   process.on('SIGINT', () => {
-    console.log('\n[Bridge] Shutting down...');
+    console.error('\n[Bridge] Shutting down...');
     wsServer.close();
     process.exit(0);
   });
 
   process.on('SIGTERM', () => {
-    console.log('\n[Bridge] Shutting down...');
+    console.error('\n[Bridge] Shutting down...');
     wsServer.close();
     process.exit(0);
   });

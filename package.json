@@ -6,6 +6,7 @@
     "dev:plugin": "cd packages/plugin && pnpm build",
     "dev:bridge": "cd packages/bridge && pnpm dev",
     "build": "pnpm -r build",
+    "test": "pnpm build && node --test tests/*.test.mjs",
     "clean": "pnpm -r clean",
     "publish:shared": "cd packages/shared && pnpm publish --no-git-checks",
     "publish:bridge": "cd packages/bridge && pnpm publish --no-git-checks",

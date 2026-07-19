@@ -133,6 +133,16 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
           type: 'number',
           description: '高度（px）',
         },
+        horizontalSizing: {
+          type: 'string',
+          enum: ['FIXED', 'HUG', 'FILL'],
+          description: '横向尺寸策略。默认：传入 width 时为 FIXED，否则为 HUG；FILL 仅适用于 Auto Layout 父容器中的子节点',
+        },
+        verticalSizing: {
+          type: 'string',
+          enum: ['FIXED', 'HUG', 'FILL'],
+          description: '纵向尺寸策略。默认：传入 height 时为 FIXED，否则为 HUG；FILL 仅适用于 Auto Layout 父容器中的子节点',
+        },
         fill: {
           type: 'string',
           description: '背景颜色（hex 格式，如 #FFFFFF）',
@@ -321,7 +331,7 @@ export const TOOL_DEFINITIONS: SemanticToolDefinition[] = [
   },
   {
     name: 'create_image',
-    description: '创建图片占位节点（Frame + IMAGE 填充或纯色占位）',
+    description: '创建图片节点。提供 src 时下载图片并创建真实 IMAGE 填充，否则创建纯色占位',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1412,10 +1422,11 @@ export class SemanticTools {
   private registry: SemanticRegistry;
   private eventQueue: PluginEvent[];
   private templateRegistry: TemplateRegistry;
+  private registryHydrated = false;
 
   constructor(executor: PrimitiveExecutor, eventQueue: PluginEvent[] = []) {
     this.primitives = new Primitives(executor);
-    this.registry = new SemanticRegistry();
+    this.registry = new SemanticRegistry((entry) => this.primitives.setSemanticData({ nodeId: entry.nodeId, entry }));
     this.eventQueue = eventQueue;
     this.templateRegistry = new TemplateRegistry();
   }
@@ -1617,6 +1628,7 @@ export class SemanticTools {
       name, semantic, direction, padding, gap,
       width, height, fill, cornerRadius, parentId,
       layoutPreset, layoutWrap, counterAxisSpacing, clipsContent,
+      horizontalSizing, verticalSizing,
     } = params as Record<string, unknown>;
 
     const fills = parseFills(fill as string | undefined);
@@ -1639,7 +1651,13 @@ export class SemanticTools {
     // 合并布局预设与显式参数（显式参数优先）
     const p = typeof padding === 'number' ? padding : 0;
     const g = typeof gap === 'number' ? gap : 0;
+    const defaultHorizontalSizing = (horizontalSizing as SetLayoutParams['layoutSizingHorizontal'] | undefined)
+      ?? (width !== undefined ? 'FIXED' : 'HUG');
+    const defaultVerticalSizing = (verticalSizing as SetLayoutParams['layoutSizingVertical'] | undefined)
+      ?? (height !== undefined ? 'FIXED' : 'HUG');
+    const preset = layoutPreset ? LAYOUT_PRESETS[layoutPreset as string] : undefined;
     const layoutArgs = {
+      ...(preset || {}),
       nodeId: node.id,
       direction: (direction as 'VERTICAL' | 'HORIZONTAL') || 'VERTICAL',
       paddingLeft: p,
@@ -1650,34 +1668,12 @@ export class SemanticTools {
       // WRAP 模式支持
       ...(layoutWrap !== undefined && { layoutWrap: layoutWrap as 'NO_WRAP' | 'WRAP' }),
       ...(counterAxisSpacing !== undefined && { counterAxisSpacing: counterAxisSpacing as number }),
-      // 智能默认：未指定宽/高的方向自动 HUG，容器自适应内容
-      // 指定了宽度时，WRAP 模式需要 FIXED 以触发换行
-      ...(width === undefined
-        ? { layoutSizingHorizontal: 'HUG' as const }
-        : (layoutWrap === 'WRAP' && { layoutSizingHorizontal: 'FIXED' as const })),
-      ...(height === undefined && { layoutSizingVertical: 'HUG' as const }),
+      layoutSizingHorizontal: defaultHorizontalSizing,
+      layoutSizingVertical: defaultVerticalSizing,
     } as SetLayoutParams;
 
-    if (layoutPreset) {
-      const preset = LAYOUT_PRESETS[layoutPreset as string];
-      if (preset) {
-        // 预设作为默认值，显式参数覆盖
-        Object.assign(layoutArgs, preset, {
-          nodeId: node.id,  // 确保 nodeId 不被覆盖
-          ...(direction !== undefined && { direction }),
-          ...(padding !== undefined && { paddingLeft: p, paddingRight: p, paddingTop: p, paddingBottom: p }),
-          ...(gap !== undefined && { itemSpacing: g }),
-          ...(layoutWrap !== undefined && { layoutWrap }),
-          ...(counterAxisSpacing !== undefined && { counterAxisSpacing }),
-        });
-      }
-    }
-
-    // 如果有布局参数或预设，应用 Auto Layout
-    if (layoutPreset || direction || padding !== undefined || gap !== undefined
-        || layoutWrap !== undefined || counterAxisSpacing !== undefined) {
-      await this.primitives.setLayout(layoutArgs);
-    }
+    // create_container 始终创建 Auto Layout；尺寸策略决定 FIXED/HUG/FILL。
+    await this.primitives.setLayout(layoutArgs);
 
     // 设置 clipsContent（如果有指定）
     if (clipsContent !== undefined) {
@@ -1696,7 +1692,14 @@ export class SemanticTools {
       parentId: parentId as string | undefined,
     });
 
-    return { success: true, data: { ...node, semantic: semanticType } };
+    return {
+      success: true,
+      data: {
+        ...node,
+        semantic: semanticType,
+        sizing: { horizontal: defaultHorizontalSizing, vertical: defaultVerticalSizing },
+      },
+    };
   }
 
   private async createText(params: Record<string, unknown>): Promise<SemanticResult> {
@@ -2027,8 +2030,17 @@ export class SemanticTools {
       counterAxisAlignItems: 'CENTER',
     });
 
+    if (imageUrl && typeof imageUrl === 'string') {
+      await this.primitives.createImageNode({
+        imageData: await this.loadImageData(imageUrl),
+        name: 'Avatar Image', parentId: avatar.id,
+        width: size as number, height: size as number,
+        cornerRadius: shape === 'circle' ? (size as number) / 2 : 4,
+      });
+    }
+
     // 显示回退文字
-    if (fallbackText && typeof fallbackText === 'string') {
+    if (!imageUrl && fallbackText && typeof fallbackText === 'string') {
       await this.primitives.createTextNode({
         content: fallbackText.charAt(0).toUpperCase(),
         name: 'Fallback',
@@ -2489,20 +2501,17 @@ export class SemanticTools {
 
   private async createImage(params: Record<string, unknown>): Promise<SemanticResult> {
     const { name, width, height, src, cornerRadius, parentId } = params;
-
-    const fills: unknown[] = src
-      ? [{ type: 'IMAGE', url: src as string }]
-      : parseFills('#E5E7EB');
-
-    const img = await this.primitives.createNode({
-      type: 'RECTANGLE',
-      name: name as string,
-      parentId: parentId as string | undefined,
-      width: width as number,
-      height: height as number,
-      fills: fills as FigmaFill[],
-      cornerRadius: cornerRadius as number | undefined,
-    });
+    const img = src && typeof src === 'string'
+      ? await this.primitives.createImageNode({
+          imageData: await this.loadImageData(src), name: name as string,
+          parentId: parentId as string | undefined, width: width as number,
+          height: height as number, cornerRadius: cornerRadius as number | undefined,
+        })
+      : await this.primitives.createNode({
+          type: 'RECTANGLE', name: name as string, parentId: parentId as string | undefined,
+          width: width as number, height: height as number, fills: parseFills('#E5E7EB'),
+          cornerRadius: cornerRadius as number | undefined,
+        });
 
     const entry: SemanticEntry = {
       nodeId: img.id,
@@ -2515,6 +2524,39 @@ export class SemanticTools {
     this.registry.register(entry);
 
     return { success: true, data: { ...img, semantic: 'image' } };
+  }
+
+  private async ensureRegistryHydrated(): Promise<void> {
+    if (this.registryHydrated) return;
+    const entries = await this.primitives.getSemanticEntries();
+    for (const entry of entries) this.registry.register(entry, false);
+    this.registryHydrated = true;
+  }
+
+  private async loadImageData(src: string): Promise<string> {
+    if (src.startsWith('data:')) {
+      const match = /^data:image\/(?:png|jpe?g|gif|webp);base64,([A-Za-z0-9+/=]+)$/i.exec(src);
+      if (!match) throw new Error('Unsupported or malformed image data URL');
+      if (Buffer.byteLength(match[1], 'base64') > 10 * 1024 * 1024) throw new Error('Image exceeds 10 MB');
+      return match[1];
+    }
+    const url = new URL(src);
+    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Image URL must use http or https');
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    try {
+      const response = await fetch(url, { signal: controller.signal, redirect: 'error' });
+      if (!response.ok) throw new Error(`Image download failed: HTTP ${response.status}`);
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.toLowerCase().startsWith('image/')) throw new Error(`URL is not an image: ${contentType || 'unknown content type'}`);
+      const declaredLength = Number(response.headers.get('content-length') || 0);
+      if (declaredLength > 10 * 1024 * 1024) throw new Error('Image exceeds 10 MB');
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (bytes.length > 10 * 1024 * 1024) throw new Error('Image exceeds 10 MB');
+      return bytes.toString('base64');
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   private async createDivider(params: Record<string, unknown>): Promise<SemanticResult> {
@@ -3309,6 +3351,7 @@ export class SemanticTools {
 
     // 如果指定了语义标签，从注册表查找
     if (semantic && typeof semantic === 'string') {
+      await this.ensureRegistryHydrated();
       const entries = this.registry.findByType(semantic);
       if (name && typeof name === 'string') {
         // 进一步过滤名称（转义正则特殊字符后再替换通配符）
@@ -3354,6 +3397,7 @@ export class SemanticTools {
   }
 
   private async getSemanticMap(params: Record<string, unknown>): Promise<SemanticResult> {
+    await this.ensureRegistryHydrated();
     const { filter } = params;
 
     const entries = this.registry.findAll(filter as Parameters<typeof this.registry.findAll>[0]);
@@ -3377,7 +3421,7 @@ export class SemanticTools {
     if (properties && typeof properties === 'object') {
       for (const [key, value] of Object.entries(properties as Record<string, unknown>)) {
         if ((key === 'fills' || key === 'color') && typeof value === 'string') {
-          processedProps[key] = parseFills(value);
+          processedProps[key === 'color' ? 'fills' : key] = parseFills(value);
         } else {
           processedProps[key] = value;
         }
@@ -3401,6 +3445,7 @@ export class SemanticTools {
   }
 
   private async updateBySemantic(params: Record<string, unknown>): Promise<SemanticResult> {
+    await this.ensureRegistryHydrated();
     const { semantic, properties, filter } = params;
 
     const entries = this.registry.findAll(
@@ -3408,10 +3453,18 @@ export class SemanticTools {
     );
 
     const results: unknown[] = [];
+    const processedProps: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(properties as Record<string, unknown>)) {
+      if ((key === 'fills' || key === 'color') && typeof value === 'string') {
+        processedProps[key === 'color' ? 'fills' : key] = parseFills(value);
+      } else {
+        processedProps[key] = value;
+      }
+    }
     for (const entry of entries) {
       const data = await this.primitives.setProperties({
         nodeId: entry.nodeId,
-        properties: properties as Record<string, unknown>,
+        properties: processedProps,
       });
       results.push(data);
     }
@@ -3485,6 +3538,7 @@ export class SemanticTools {
   }
 
   private async deleteBySemantic(params: Record<string, unknown>): Promise<SemanticResult> {
+    await this.ensureRegistryHydrated();
     const { semantic, filter } = params;
 
     const entries = this.registry.findAll(
@@ -3523,6 +3577,7 @@ export class SemanticTools {
   }
 
   private async reorderBySemantic(params: Record<string, unknown>): Promise<SemanticResult> {
+    await this.ensureRegistryHydrated();
     const { semantic, order = 'asc' } = params;
 
     const entries = this.registry.findByType(semantic as string);
@@ -3574,6 +3629,7 @@ export class SemanticTools {
   }
 
   private async exportBySemantic(params: Record<string, unknown>): Promise<SemanticResult> {
+    await this.ensureRegistryHydrated();
     const { semantic, format = 'PNG', scale = 1, filter } = params;
 
     const entries = this.registry.findAll(
@@ -3629,9 +3685,12 @@ export class SemanticTools {
         if (rollback && createdNodeIds.length > 0) {
           // 回滚：逆序删除已创建的节点
           const rollbackErrors: string[] = [];
+          let rolledBackCount = 0;
           for (let i = createdNodeIds.length - 1; i >= 0; i--) {
             try {
               await this.primitives.deleteNode({ nodeId: createdNodeIds[i] });
+              this.registry.unregister(createdNodeIds[i]);
+              rolledBackCount++;
             } catch (rErr) {
               rollbackErrors.push(`${createdNodeIds[i]}: ${rErr instanceof Error ? rErr.message : String(rErr)}`);
             }
@@ -3639,7 +3698,7 @@ export class SemanticTools {
           return {
             success: false,
             error: `Batch failed at step ${results.length - 1} (${c.tool}): ${result.error}. Rolled back ${createdNodeIds.length} nodes.`,
-            data: { results, executed: results.length, total: commands.length, rolledBack: true, rolledBackCount: createdNodeIds.length, rollbackErrors },
+            data: { results, executed: results.length, total: commands.length, rolledBack: true, rolledBackCount, rollbackErrors },
           };
         }
         break;
@@ -3828,18 +3887,29 @@ export class SemanticTools {
     for (const diff of diffs) {
       try {
         if (diff.type === 'modify' && diff.properties) {
-          await this.primitives.setProperties({
-            nodeId: diff.id,
-            properties: diff.properties,
-          });
+          const layoutKeys = new Set(['layoutMode', 'paddingLeft', 'paddingRight', 'paddingTop', 'paddingBottom', 'itemSpacing']);
+          const layoutProps: Record<string, unknown> = {};
+          const regularProps: Record<string, unknown> = {};
+          for (const [key, value] of Object.entries(diff.properties)) {
+            (layoutKeys.has(key) ? layoutProps : regularProps)[key] = value;
+          }
+          if (Object.keys(regularProps).length) {
+            await this.primitives.setProperties({ nodeId: diff.id, properties: regularProps });
+          }
+          if (Object.keys(layoutProps).length) {
+            await this.primitives.setLayout({
+              nodeId: diff.id,
+              direction: layoutProps.layoutMode as SetLayoutParams['direction'],
+              paddingLeft: layoutProps.paddingLeft as number | undefined,
+              paddingRight: layoutProps.paddingRight as number | undefined,
+              paddingTop: layoutProps.paddingTop as number | undefined,
+              paddingBottom: layoutProps.paddingBottom as number | undefined,
+              itemSpacing: layoutProps.itemSpacing as number | undefined,
+            });
+          }
           applied.push(`modify:${diff.id}`);
-        } else if (diff.type === 'add' && diff.properties) {
-          await this.primitives.createNode({
-            type: (diff.properties.type as NodeSnapshot['type'] || 'FRAME') as 'FRAME' | 'RECTANGLE' | 'ELLIPSE' | 'LINE' | 'COMPONENT' | 'INSTANCE',
-            name: diff.name || 'node',
-            parentId: diff.parentId || parentId,
-            ...diff.properties,
-          } as any);
+        } else if (diff.type === 'add' && diff.snapshot) {
+          await this.createSnapshotTree(diff.snapshot, diff.parentId || parentId);
           applied.push(`add:${diff.name}`);
         } else if (diff.type === 'remove') {
           await this.primitives.deleteNode({ nodeId: diff.id });
@@ -3870,6 +3940,11 @@ export class SemanticTools {
     // 对比属性
     const changedProps: Record<string, unknown> = {};
     let hasChanges = false;
+
+    if (current.name !== target.name) {
+      changedProps.name = target.name;
+      hasChanges = true;
+    }
 
     for (const [key, value] of Object.entries(target.properties)) {
       const currentVal = current.properties[key];
@@ -3902,7 +3977,7 @@ export class SemanticTools {
           id: tc.id,
           type: 'add',
           name: tc.name,
-          properties: tc.properties,
+          snapshot: tc,
           parentId: current.id,
         });
       }
@@ -3926,6 +4001,29 @@ export class SemanticTools {
         this.diffNode(cc, tc, diffs);
       }
     }
+  }
+
+  private async createSnapshotTree(snapshot: NodeSnapshot, parentId?: string): Promise<string> {
+    let created: { id: string };
+    if (snapshot.type === 'TEXT') {
+      const fontName = snapshot.properties.fontName as { family?: string; style?: string } | undefined;
+      created = await this.primitives.createTextNode({
+        content: String(snapshot.properties.characters ?? ''), name: snapshot.name, parentId,
+        fontFamily: fontName?.family, fontWeight: fontName?.style,
+        fontSize: typeof snapshot.properties.fontSize === 'number' ? snapshot.properties.fontSize : undefined,
+        x: snapshot.properties.x as number | undefined, y: snapshot.properties.y as number | undefined,
+      });
+    } else {
+      const supported = new Set(['FRAME', 'RECTANGLE', 'ELLIPSE', 'LINE', 'COMPONENT', 'VECTOR', 'STAR', 'POLYGON']);
+      if (!supported.has(snapshot.type)) throw new Error(`Diff cannot recreate node type: ${snapshot.type}`);
+      created = await this.primitives.createNode({
+        type: snapshot.type as 'FRAME' | 'RECTANGLE' | 'ELLIPSE' | 'LINE' | 'COMPONENT' | 'VECTOR' | 'STAR' | 'POLYGON',
+        name: snapshot.name, parentId,
+        ...snapshot.properties,
+      });
+    }
+    for (const child of snapshot.children || []) await this.createSnapshotTree(child, created.id);
+    return created.id;
   }
 
   // ─── Template 工具实现 ───────────────────────────────────

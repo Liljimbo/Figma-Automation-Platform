@@ -457,6 +457,7 @@
       }
 
       ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'hello', payload: { client: 'figma-plugin', version: '0.1.0' } }));
         reconnectAttempts = 0;
         setStatus('connected', 'Connected');
         log('Connected to Bridge', 'success');

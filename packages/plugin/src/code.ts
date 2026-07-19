@@ -70,6 +70,28 @@ registerHandler('getStyles', readHandlers.getStyles);
 
 registerHandler('createNode', createHandlers.createNode);
 registerHandler('createTextNode', createHandlers.createTextNode);
+registerHandler('createImageNode', createHandlers.createImageNode);
+registerHandler('setSemanticData', async (params) => {
+  const { nodeId, entry } = params as { nodeId: string; entry: Record<string, unknown> };
+  const node = figma.getNodeById(nodeId);
+  if (!node) throw new Error(`Node not found: ${nodeId}`);
+  node.setPluginData('semantic', JSON.stringify(entry));
+  return { stored: true, nodeId };
+});
+registerHandler('getSemanticEntries', async () => {
+  const entries: Record<string, unknown>[] = [];
+  for (const node of figma.root.findAll()) {
+    const raw = node.getPluginData('semantic');
+    if (!raw) continue;
+    try {
+      const entry = JSON.parse(raw) as Record<string, unknown>;
+      entries.push({ ...entry, nodeId: node.id, name: node.name });
+    } catch {
+      // Ignore malformed metadata written by older versions.
+    }
+  }
+  return entries;
+});
 
 // ─── Modify Handlers (from commands/modify.ts + inline) ─────
 
@@ -94,13 +116,57 @@ registerHandler('setProperties', async (params) => {
     throw new Error(`Node not found: ${nodeId}`);
   }
 
-  const sceneNode = node as SceneNode;
+  if (!properties || typeof properties !== 'object') throw new Error('properties is required');
+  const allowed = new Set([
+    'name', 'visible', 'opacity', 'x', 'y', 'rotation', 'fills', 'strokes',
+    'strokeWeight', 'strokeAlign', 'strokeDashes', 'cornerRadius', 'effects',
+    'clipsContent', 'characters', 'content', 'fontSize', 'fontName',
+    'textAlignHorizontal', 'width', 'height',
+  ]);
+  const keys = Object.keys(properties);
+  const unsupported = keys.filter(key => !allowed.has(key));
+  if (unsupported.length) throw new Error(`Unsupported properties: ${unsupported.join(', ')}`);
 
-  for (const [key, value] of Object.entries(properties)) {
-    (sceneNode as unknown as Record<string, unknown>)[key] = value;
+  const sceneNode = node as SceneNode;
+  const textNode = node.type === 'TEXT' ? node as TextNode : null;
+  const textKeys = new Set(['characters', 'content', 'fontSize', 'fontName', 'textAlignHorizontal']);
+  if (!textNode && keys.some(key => textKeys.has(key))) {
+    throw new Error(`Text properties cannot be applied to ${node.type}`);
   }
 
-  return { updated: true, nodeId };
+  if (textNode && keys.some(key => textKeys.has(key))) {
+    const requestedFont = properties.fontName;
+    if (requestedFont && typeof requestedFont === 'object' && 'family' in requestedFont && 'style' in requestedFont) {
+      await figma.loadFontAsync(requestedFont as FontName);
+    } else {
+      const fonts = textNode.getRangeAllFontNames(0, textNode.characters.length);
+      if (fonts.length) {
+        await Promise.all(fonts.map(font => figma.loadFontAsync(font)));
+      } else if (textNode.fontName !== figma.mixed) {
+        await figma.loadFontAsync(textNode.fontName);
+      }
+    }
+  }
+
+  const width = properties.width as number | undefined;
+  const height = properties.height as number | undefined;
+  if ((width !== undefined || height !== undefined) && !('resizeWithoutConstraints' in sceneNode)) {
+    throw new Error(`Node ${nodeId} does not support resizing`);
+  }
+  if ('fills' in properties && !('fills' in sceneNode)) throw new Error(`Node ${nodeId} does not support fills`);
+  if ('strokes' in properties && !('strokes' in sceneNode)) throw new Error(`Node ${nodeId} does not support strokes`);
+
+  for (const [rawKey, value] of Object.entries(properties)) {
+    if (rawKey === 'width' || rawKey === 'height') continue;
+    const key = rawKey === 'content' ? 'characters' : rawKey;
+    (sceneNode as unknown as Record<string, unknown>)[key] = value;
+  }
+  if (width !== undefined || height !== undefined) {
+    (sceneNode as SceneNode & { resizeWithoutConstraints(w: number, h: number): void })
+      .resizeWithoutConstraints(width ?? sceneNode.width, height ?? sceneNode.height);
+  }
+
+  return { updated: true, nodeId, updatedKeys: keys };
 });
 
 registerHandler('setLayout', async (params) => {

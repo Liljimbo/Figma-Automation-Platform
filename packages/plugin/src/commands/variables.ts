@@ -22,12 +22,13 @@ const createVariableCollection: CommandHandler = async (params) => {
 
   // 添加额外的 modes（免费版可能限制为 1 个 mode）
   const addedModes = [];
+  const warnings: string[] = [];
   for (let i = 1; i < modes.length; i++) {
     try {
       collection.addMode(modes[i]);
       addedModes.push(modes[i]);
     } catch (err) {
-      // Figma 免费版限制为 1 个 mode，忽略错误
+      warnings.push(`Could not add mode ${modes[i]}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -36,6 +37,7 @@ const createVariableCollection: CommandHandler = async (params) => {
     name: collection.name,
     modes: collection.modes.map(m => ({ modeId: m.modeId, name: m.name })),
     defaultModeId: collection.defaultModeId,
+    warnings,
   };
 };
 
@@ -68,6 +70,7 @@ const createVariable: CommandHandler = async (params) => {
   if (!collection) throw new Error(`Variable collection not found: ${collectionId}`);
 
   const variable = figma.variables.createVariable(name, collection, resolvedType);
+  const failedValues: Array<{ modeId: string; error: string }> = [];
 
   // 设置每个 mode 的值
   if (valuesByMode) {
@@ -75,7 +78,7 @@ const createVariable: CommandHandler = async (params) => {
       try {
         variable.setValueForMode(modeId, value as VariableValue);
       } catch (err) {
-        // mode 可能不存在，跳过
+        failedValues.push({ modeId, error: err instanceof Error ? err.message : String(err) });
       }
     }
   }
@@ -86,6 +89,7 @@ const createVariable: CommandHandler = async (params) => {
     resolvedType: variable.resolvedType,
     valuesByMode: variable.valuesByMode,
     collectionId,
+    failedValues,
   };
 };
 

@@ -12,10 +12,19 @@ import type { SemanticEntry, RegistryFilter } from './types.js';
 
 export class SemanticRegistry {
   private entries = new Map<string, SemanticEntry>();
+  private onRegister?: (entry: SemanticEntry) => Promise<void> | void;
+
+  constructor(onRegister?: (entry: SemanticEntry) => Promise<void> | void) {
+    this.onRegister = onRegister;
+  }
 
   /** 注册一个语义节点 */
-  register(entry: SemanticEntry): void {
+  register(entry: SemanticEntry, persist = true): void {
     this.entries.set(entry.nodeId, entry);
+    if (!persist) return;
+    void Promise.resolve(this.onRegister?.(entry)).catch((error) => {
+      console.error('[Registry] Failed to persist semantic entry:', error);
+    });
   }
 
   /** 注销一个语义节点 */

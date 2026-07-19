@@ -270,9 +270,30 @@ export const createTextNode: CommandHandler = async (params) => {
   };
 };
 
+export const createImageNode: CommandHandler = async (params) => {
+  const p = params as Record<string, unknown>;
+  const imageData = p.imageData as string;
+  const width = p.width as number;
+  const height = p.height as number;
+  if (!imageData) throw new Error('imageData is required');
+  if (!(width > 0) || !(height > 0)) throw new Error('width and height must be positive');
+
+  const image = figma.createImage(figma.base64Decode(imageData));
+  const node = figma.createRectangle();
+  node.name = (p.name as string) || 'Image';
+  node.resizeWithoutConstraints(width, height);
+  node.fills = [{ type: 'IMAGE', imageHash: image.hash, scaleMode: 'FILL' }];
+  if (p.cornerRadius !== undefined) node.cornerRadius = p.cornerRadius as number;
+  if (p.x !== undefined) node.x = p.x as number;
+  if (p.y !== undefined) node.y = p.y as number;
+  appendToParent(node, p.parentId as string | undefined);
+  return { id: node.id, name: node.name, type: node.type, imageHash: image.hash };
+};
+
 // ─── 导出所有创建 handler ───────────────────────────────────
 
 export const createHandlers: Record<string, CommandHandler> = {
   createNode,
   createTextNode,
+  createImageNode,
 };

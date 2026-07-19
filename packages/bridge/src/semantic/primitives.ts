@@ -7,6 +7,8 @@ import type { PrimitiveExecutor } from './types.js';
 import type {
   CreateNodeParams,
   CreateTextNodeParams,
+  CreateImageNodeParams,
+  SemanticEntry,
   DeleteNodeParams,
   SetPropertiesParams,
   SetLayoutParams,
@@ -90,6 +92,19 @@ export class Primitives {
   async createTextNode(params: CreateTextNodeParams): Promise<{ id: string; name: string; type: string; characters: string }> {
     const result = await this.execute('createTextNode', params as unknown as Record<string, unknown>);
     return result as { id: string; name: string; type: string; characters: string };
+  }
+
+  async createImageNode(params: CreateImageNodeParams): Promise<{ id: string; name: string; type: string }> {
+    const result = await this.execute('createImageNode', params as unknown as Record<string, unknown>);
+    return result as { id: string; name: string; type: string };
+  }
+
+  async setSemanticData(params: { nodeId: string; entry: SemanticEntry }): Promise<void> {
+    await this.execute('setSemanticData', params as unknown as Record<string, unknown>);
+  }
+
+  async getSemanticEntries(): Promise<SemanticEntry[]> {
+    return await this.execute('getSemanticEntries', {}) as SemanticEntry[];
   }
 
   // ─── Modify ──────────────────────────────────────────────

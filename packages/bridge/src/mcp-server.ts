@@ -11,9 +11,19 @@ import type { PrimitiveExecutor } from './semantic/types.js';
 import { CommandRouter } from './command-router.js';
 import type { PluginEvent } from '@figma-forge/shared';
 
+type JsonSchemaField = {
+  type?: string;
+  enum?: string[];
+  items?: JsonSchemaField;
+  properties?: Record<string, JsonSchemaField>;
+  required?: string[];
+  description?: string;
+  default?: unknown;
+};
+
 /** 将 JSON Schema properties 转换为 Zod raw shape，供 MCP SDK 暴露 inputSchema */
 function jsonSchemaToZodShape(
-  properties: Record<string, { type?: string; enum?: string[]; items?: { type?: string; properties?: Record<string, unknown> }; description?: string; default?: unknown }> = {},
+  properties: Record<string, JsonSchemaField> = {},
   required: string[] = []
 ): Record<string, z.ZodTypeAny> {
   const shape: Record<string, z.ZodTypeAny> = {};
@@ -26,13 +36,21 @@ function jsonSchemaToZodShape(
     } else if (prop.type === 'array') {
       if (prop.items?.type === 'object' && prop.items?.properties) {
         // 递归处理对象数组（如 batch_execute 的 commands）
-        const innerShape = jsonSchemaToZodShape(prop.items.properties as Record<string, { type?: string; enum?: string[]; items?: { type?: string; properties?: Record<string, unknown> }; description?: string; default?: unknown }>);
+        const innerShape = jsonSchemaToZodShape(prop.items.properties, prop.items.required || []);
         field = z.array(z.object(innerShape));
+      } else if (prop.items?.type === 'number') {
+        field = z.array(z.number());
+      } else if (prop.items?.type === 'boolean') {
+        field = z.array(z.boolean());
+      } else if (prop.items?.enum && prop.items.enum.length >= 2) {
+        field = z.array(z.enum(prop.items.enum as [string, ...string[]]));
       } else {
         field = z.array(z.string());
       }
     } else if (prop.type === 'object') {
-      field = z.record(z.string(), z.unknown());
+      field = prop.properties
+        ? z.object(jsonSchemaToZodShape(prop.properties, prop.required || []))
+        : z.record(z.string(), z.unknown());
     } else if (prop.enum && prop.enum.length >= 2) {
       field = z.enum(prop.enum as [string, ...string[]]);
     } else {
@@ -40,6 +58,9 @@ function jsonSchemaToZodShape(
     }
     if (prop.description) {
       field = field.describe(prop.description);
+    }
+    if (prop.default !== undefined) {
+      field = field.default(prop.default);
     }
     // 非必填字段设为 optional
     if (!required.includes(key)) {
@@ -79,7 +100,7 @@ export class BridgeMCPServer {
     for (const toolDef of TOOL_DEFINITIONS) {
       const zodShape = toolDef.inputSchema?.properties
         ? jsonSchemaToZodShape(
-            toolDef.inputSchema.properties as Record<string, { type?: string; enum?: string[]; items?: { type?: string }; description?: string }>,
+            toolDef.inputSchema.properties as Record<string, JsonSchemaField>,
             (toolDef.inputSchema as { required?: string[] }).required || []
           )
         : undefined;
@@ -116,7 +137,7 @@ export class BridgeMCPServer {
       }
     }
 
-    console.log(`[MCP] Registered ${TOOL_DEFINITIONS.length} tools`);
+    console.error(`[MCP] Registered ${TOOL_DEFINITIONS.length} tools`);
   }
 
   getRegistry() {
@@ -129,6 +150,6 @@ export class BridgeMCPServer {
 
   async start() {
     await this.mcp.connect(this.transport);
-    console.log('[MCP] Server started (stdio)');
+    console.error('[MCP] Server started (stdio)');
   }
 }

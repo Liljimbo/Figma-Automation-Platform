@@ -6,6 +6,7 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import type { SemanticTools } from './semantic/tools.js';
 import { TOOL_DEFINITIONS } from './semantic/tools.js';
+import config from './config.js';
 
 export class HttpServer {
   private server: ReturnType<typeof createServer> | null = null;
@@ -20,14 +21,19 @@ export class HttpServer {
   start(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-        // CORS
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
         if (req.method === 'OPTIONS') {
-          res.writeHead(204);
+          res.writeHead(403);
           res.end();
+          return;
+        }
+
+        if (req.headers.origin) {
+          this.json(res, 403, { error: 'Browser-originated REST requests are disabled' });
+          return;
+        }
+
+        if (config.authToken && req.headers['x-figma-forge-token'] !== config.authToken) {
+          this.json(res, 401, { error: 'Unauthorized' });
           return;
         }
 
@@ -46,6 +52,10 @@ export class HttpServer {
               note: 'Use POST /tools/:toolName to call a tool',
             });
           } else if (req.method === 'POST' && path.startsWith('/tools/')) {
+            if (!String(req.headers['content-type'] || '').toLowerCase().startsWith('application/json')) {
+              this.json(res, 415, { error: 'Content-Type must be application/json' });
+              return;
+            }
             // 调用工具
             const toolName = path.slice('/tools/'.length);
             const body = await this.readBody(req);
@@ -66,14 +76,15 @@ export class HttpServer {
             ]});
           }
         } catch (err) {
-          this.json(res, 500, {
-            error: err instanceof Error ? err.message : String(err),
+          const message = err instanceof Error ? err.message : String(err);
+          this.json(res, message.startsWith('Request body exceeds') ? 413 : 500, {
+            error: message,
           });
         }
       });
 
-      this.server.listen(this.port, () => {
-        console.log(`[HTTP] REST API listening on port ${this.port}`);
+      this.server.listen(this.port, config.host, () => {
+        console.error(`[HTTP] REST API listening on ${config.host}:${this.port}`);
         resolve();
       });
 
@@ -96,8 +107,16 @@ export class HttpServer {
   private readBody(req: IncomingMessage): Promise<string> {
     return new Promise((resolve, reject) => {
       let body = '';
-      req.on('data', chunk => body += chunk);
-      req.on('end', () => resolve(body));
+      let rejected = false;
+      req.on('data', chunk => {
+        if (rejected) return;
+        body += chunk;
+        if (Buffer.byteLength(body) > config.maxBodyBytes) {
+          rejected = true;
+          reject(new Error(`Request body exceeds ${config.maxBodyBytes} bytes`));
+        }
+      });
+      req.on('end', () => { if (!rejected) resolve(body); });
       req.on('error', reject);
     });
   }

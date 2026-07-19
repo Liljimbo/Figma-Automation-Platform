@@ -31,10 +31,10 @@ export class WSServer {
   /** 启动 WebSocket 服务 */
   start(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.wss = new WebSocketServer({ port: config.wsPort });
+      this.wss = new WebSocketServer({ port: config.wsPort, host: config.host });
 
       this.wss.on('listening', () => {
-        console.log(`[WS] Server listening on port ${config.wsPort}`);
+        console.error(`[WS] Server listening on ${config.host}:${config.wsPort}`);
         resolve();
       });
 
@@ -45,22 +45,24 @@ export class WSServer {
 
       this.wss.on('connection', (ws, req) => {
         const clientIp = req.socket.remoteAddress;
-        console.log(`[WS] Client connected from ${clientIp}`);
-
-        // 保持所有连接，不替换旧连接
-        // Plugin 连接和测试客户端可以共存
-        if (!this.pluginSocket || this.pluginSocket.readyState !== WebSocket.OPEN) {
-          this.pluginSocket = ws;
-          this.commandRouter.setSocket(ws);
-          this.onStatusChange?.('connected');
-        }
+        console.error(`[WS] Client connected from ${clientIp}`);
 
         ws.on('message', (data) => {
           try {
             const msg = JSON.parse(data.toString());
-            if (msg.type === 'result') {
+            if (msg.type === 'hello' && msg.payload?.client === 'figma-plugin') {
+              if (this.pluginSocket && this.pluginSocket !== ws) {
+                this.commandRouter.cleanup();
+                this.pluginSocket.close(1000, 'Replaced by a newer plugin connection');
+              }
+              this.pluginSocket = ws;
+              this.commandRouter.setSocket(ws);
+              this.onStatusChange?.('connected');
+            } else if (ws === this.pluginSocket && msg.type === 'result'
+              && typeof msg.payload?.id === 'string' && typeof msg.payload?.success === 'boolean') {
               this.commandRouter.handleResult(msg.payload);
-            } else if (msg.type === 'event') {
+            } else if (ws === this.pluginSocket && msg.type === 'event'
+              && typeof msg.payload?.event === 'string' && typeof msg.payload?.timestamp === 'number') {
               this.onEventCallback?.(msg.payload);
             }
           } catch (err) {
@@ -69,11 +71,13 @@ export class WSServer {
         });
 
         ws.on('close', () => {
-          console.log('[WS] Plugin disconnected');
-          this.pluginSocket = null;
-          this.commandRouter.clearSocket();
-          this.commandRouter.cleanup();
-          this.onStatusChange?.('disconnected');
+          if (ws === this.pluginSocket) {
+            console.error('[WS] Plugin disconnected');
+            this.pluginSocket = null;
+            this.commandRouter.clearSocket();
+            this.commandRouter.cleanup();
+            this.onStatusChange?.('disconnected');
+          }
         });
 
         ws.on('error', (err) => {

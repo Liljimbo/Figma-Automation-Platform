@@ -5,12 +5,22 @@
 
 import { spawn } from 'child_process';
 import { setTimeout as sleep } from 'timers/promises';
+import { createServer } from 'net';
 
 const results = [];
 
+async function getFreePort() {
+  const server = createServer();
+  await new Promise((resolve, reject) => server.listen(0, '127.0.0.1', resolve).once('error', reject));
+  const address = server.address();
+  const port = typeof address === 'object' && address ? address.port : 0;
+  await new Promise(resolve => server.close(resolve));
+  return port;
+}
+
 function log(test, status, detail = '') {
   const icon = status === 'PASS' ? '✅' : status === 'FAIL' ? '❌' : '⏳';
-  results.push({ test, status, detail });
+  if (status !== 'RUNNING') results.push({ test, status, detail });
   console.log(`${icon} ${test}${detail ? ' — ' + detail : ''}`);
 }
 
@@ -19,12 +29,16 @@ async function runTest() {
 
   // Test 1: Bridge Server 启动
   log('T1: Bridge Server 启动', 'RUNNING');
+  const wsPort = await getFreePort();
+  const httpPort = await getFreePort();
   const server = spawn(process.execPath, ['packages/bridge/dist/index.js'], {
     stdio: ['pipe', 'pipe', 'pipe'],
-    cwd: process.cwd()
+    cwd: process.cwd(),
+    env: { ...process.env, BRIDGE_WS_PORT: String(wsPort), BRIDGE_HTTP_PORT: String(httpPort) },
   });
 
   let serverOutput = '';
+  let serverDiagnostics = '';
   let serverReady = false;
 
   server.stdout.on('data', (data) => {
@@ -36,13 +50,15 @@ async function runTest() {
   });
 
   server.stderr.on('data', (data) => {
-    console.error('  Server error:', data.toString().trim());
+    const text = data.toString();
+    serverDiagnostics += text;
+    if (text.includes('MCP Server started')) serverReady = true;
   });
 
   // 等待服务器启动
   await sleep(2000);
   if (serverReady) {
-    log('T1: Bridge Server 启动', 'PASS', '端口 37849 + MCP stdio 就绪');
+    log('T1: Bridge Server 启动', 'PASS', `端口 ${wsPort} + MCP stdio 就绪`);
   } else {
     log('T1: Bridge Server 启动', 'FAIL', '启动超时');
     server.kill();
@@ -106,7 +122,7 @@ async function runTest() {
   // Test 5: Tool 调用测试
   // 解析 JSON-RPC 响应，根据 Plugin 连接状态判断预期行为
   log('T5: Tool 调用验证', 'RUNNING');
-  const pluginConnected = serverOutput.includes('Plugin connected');
+  const pluginConnected = serverDiagnostics.includes('Plugin connected');
   const callMsg = JSON.stringify({
     jsonrpc: '2.0', id: 3, method: 'tools/call',
     params: { name: 'get_document_info', arguments: {} }
@@ -150,7 +166,7 @@ async function runTest() {
   if (failed > 0) {
     console.log(`失败: ${failed}`);
   }
-  const pluginWasConnected = serverOutput.includes('Plugin connected');
+  const pluginWasConnected = serverDiagnostics.includes('Plugin connected');
   if (pluginWasConnected) {
     console.log('\n✅ Figma Plugin 已连接，完整链路验证通过');
   } else {

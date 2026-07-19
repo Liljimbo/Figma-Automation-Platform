@@ -10,6 +10,9 @@ export type PrimitiveCommandType =
   | 'findNodes'
   | 'createNode'
   | 'createTextNode'
+  | 'createImageNode'
+  | 'setSemanticData'
+  | 'getSemanticEntries'
   | 'deleteNode'
   | 'setProperties'
   | 'setLayout'
@@ -139,6 +142,17 @@ export interface CreateTextNodeParams {
   textAlignHorizontal?: 'LEFT' | 'CENTER' | 'RIGHT' | 'JUSTIFIED';
   width?: number;
   height?: number;
+  x?: number;
+  y?: number;
+}
+
+export interface CreateImageNodeParams {
+  name?: string;
+  parentId?: string;
+  imageData: string;
+  width: number;
+  height: number;
+  cornerRadius?: number;
   x?: number;
   y?: number;
 }
@@ -322,6 +336,7 @@ export interface NodeDiff {
   name?: string;
   properties?: Record<string, unknown>;
   parentId?: string;
+  snapshot?: NodeSnapshot;
 }
 
 export interface TemplateDefinition {
